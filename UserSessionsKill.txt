@@ -1,0 +1,13 @@
+https://groups.google.com/g/intersystems-public-cache/c/OKKbGPZvtAM?pli=1
+zw ^%cspSession
+zw ^%cspSession("bFT6slVQZV",0,"LOGON.TIMEOUT")
+zw $Get(^%cspSession("bFT6slVQZV",0,"LOGON.TIMEOUT"))
+
+Set rs = ##class(%ResultSet).%New("%CSP.Session:SessionInfo")
+w rs.Execute()
+w rs.Next()
+w rs.Get("ID")
+
+Set userSession=##class(%CSP.Session).%OpenId("sjopLTQkPH")
+w userSession.AppTimeout
+zw ##class(%CSP.Session).%DeleteId("o83B2fAk6T")
