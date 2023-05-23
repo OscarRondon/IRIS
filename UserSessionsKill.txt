@@ -1,13 +1,24 @@
 https://groups.google.com/g/intersystems-public-cache/c/OKKbGPZvtAM?pli=1
-zw ^%cspSession
-zw ^%cspSession("bFT6slVQZV",0,"LOGON.TIMEOUT")
-zw $Get(^%cspSession("bFT6slVQZV",0,"LOGON.TIMEOUT"))
 
-Set rs = ##class(%ResultSet).%New("%CSP.Session:SessionInfo")
-w rs.Execute()
-w rs.Next()
-w rs.Get("ID")
+ do ##class(Custom.SessionKill).whitoutTimeout()
 
-Set userSession=##class(%CSP.Session).%OpenId("sjopLTQkPH")
-w userSession.AppTimeout
-zw ##class(%CSP.Session).%DeleteId("o83B2fAk6T")
+Class Custom.SessionKill Extends %RegisteredObject
+{
+
+ClassMethod whitoutTimeout()
+{
+	Set sqlQuery = ##class(%SQL.Statement).%New()
+ 	Set status = sqlQuery.%PrepareClassQuery("%CSP.Session","SessionInfo")
+ 	if status = 1 {
+ 		Set sessionList = sqlQuery.%Execute()
+ 		while sessionList.%Next() {
+	 		set sessionID = sessionList.%Get("ID")
+	 		Set userSession=##class(%CSP.Session).%OpenId(sessionID)
+	 		if userSession.AppTimeout = 0 {
+		 		do ##class(%CSP.Session).%DeleteId(sessionID)
+	 		}
+ 		}
+ 	}
+}
+
+}
