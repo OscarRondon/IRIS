@@ -1,32 +1,31 @@
-https://groups.google.com/g/intersystems-public-cache/c/OKKbGPZvtAM?pli=1
-
- do ##class(Custom.SessionKill).withoutTimeout()
+///https://groups.google.com/g/intersystems-public-cache/c/OKKbGPZvtAM?pli=1
+///do ##class(Custom.SessionKill).withoutTimeout()
 
 Class Custom.SessionKill Extends %RegisteredObject
 {
 
 ClassMethod withoutTimeout() As %String
 {
-	set sResp = "Fail"
+	Set sResp = "Fail"
 	Set sqlQuery = ##class(%SQL.Statement).%New()
  	Set status = sqlQuery.%PrepareClassQuery("%CSP.Session","SessionInfo")
- 	if status = 1 {
+ 	If status = 1 {
  		Set sessionList = sqlQuery.%Execute()
  		Set userQty = 0
- 		while sessionList.%Next() {
+ 		While sessionList.%Next() {
 	 		Set userQty = userQty + 1
-	 		set sessionID = sessionList.%Get("ID")
+	 		Set sessionID = sessionList.%Get("ID")
 	 		Set userSession=##class(%CSP.Session).%OpenId(sessionID)
-	 		if userSession '= ""
+	 		If userSession '= ""
 	 		{
-	 			if userSession.AppTimeout = 0 {
-		 			do ##class(%CSP.Session).%DeleteId(sessionID)
+	 			If userSession.AppTimeout = 0 {
+		 			Do ##class(%CSP.Session).%DeleteId(sessionID)
 	 			}
 	 		}
  		}
  		Set sResp = "ok"
  	}
- 	Q sResp
+ 	Quit sResp
 }
 
 }
