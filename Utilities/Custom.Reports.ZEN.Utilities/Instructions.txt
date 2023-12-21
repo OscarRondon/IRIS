@@ -1,0 +1,16 @@
+1. Import file (yo can use cli or studio):
+
+  1.1. CLI:
+  execute the following: set sc = $system.OBJ.LoadDir("<<nombre_de_carpeta>>/spQuestionnariesUsage.xml", "fck /nomulticompile", .err, 1) zw sc
+  
+  1.2. Studio:
+  go to: Tools > Import Local
+  
+2. Execution:
+
+Go to Management Portal > System Explorer > SQL > Procedures
+
+
+NOTE: 
+  * This is a highly cost operation and its recomended not to use on Live enviroments, instead prefer UAT, Scratch or Train enviroments.
+  * The response time it's considerably slow

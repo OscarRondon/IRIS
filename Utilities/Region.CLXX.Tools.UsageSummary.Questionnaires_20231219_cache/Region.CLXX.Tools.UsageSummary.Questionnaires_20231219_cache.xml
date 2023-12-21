@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25">
+<Class name="Region.CLXX.Tools.UsageSummary.Questionnaires">
+<Description>
+Description:
+	Stored Procedure to list the usage of all questionnaires (User.SSUserDefWindow and related questionnaire class),
+	returning the number of records, last date and time used, and other informations.</Description>
+<Super>%RegisteredObject</Super>
+<TimeCreated>64758,44707.25651</TimeCreated>
+
+<Parameter name="SrcVer">
+<Default>$Id$</Default>
+</Parameter>
+
+<Query name="List">
+<Description>
+Parameters:
+	numberOfProcess:
+			Number of processes that will be used.
+			ATTENTION!!! This is important because with a low number of process, will take too long
+			in customer environments due to the number of records in each used questionnaire.
+			On the other hand, do not use more than 30 processes, because the environment may
+			become too busy, depending on its resources (memory, cores, etc).
+	startDate:
+			If a date is passed, only the questionnaire records with QUESDate equal or newer 
+			than the startDate will be considered.
+			The default is NULL, and the expected format is YYYY-MM-DD (ODBC format).
+
+Examples:
+	1) CALL Region_CLXX_Tools_UsageSummary.Questionnaires_List(10)
+			Will execute que stored procedure with just 10 process.
+	2) CALL Region_CLXX_Tools_UsageSummary.Questionnaires_List(1)
+			Will execute que stored procedure with just 1 process.
+			ATTENTION!!! with just one process this may take too long in customer environments
+			due to the number of records in each used questionnaire.
+	3) CALL Region_CLXX_Tools_UsageSummary.Questionnaires_List(10, '2022-08-04')
+			Will execute que stored procedure with just 10 process, and will only consider
+			the records in which the QUESDate is equal or higher then the informed date.</Description>
+<Type>%Query</Type>
+<FormalSpec>numberOfProcess:%Integer=10,startDate:%Date=""</FormalSpec>
+<SqlProc>1</SqlProc>
+<Parameter name="ROWSPEC" value="winRowId:%String, winCode:%String, winDesc:%String(MAXLEN=220), winOwner:%String, NumberOfRecords:%Integer, quesDate:%Date, quesTime:%Time, papmiNo:%String, paadmAdmNo:%String, quesRowId:%String, quesPAPatMasDR:%String, quesPAAdmDR:%String, winCreatedDate:%Date, Inactive:%String, winDeprecated:%String, winGenerateError:%String, observations:%String"/>
+</Query>
+
+<Method name="ListExecute">
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[&qHandle:%Binary,numberOfProcess:%Integer=10,startDate:%Date=""]]></FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	do ..Main(numberOfProcess, startDate)
+	
+	set qHandle = $ListBuild(0)
+	
+	quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="ListFetch">
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[&qHandle:%Binary,&Row:%List,&AtEnd:%Integer=0]]></FormalSpec>
+<PlaceAfter>ListExecute</PlaceAfter>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	set ind = $list(qHandle, 1)
+	
+	set ind = $order(^CacheTemp($zname, "winData", ind))
+	if (ind = "") {
+		set AtEnd = 1
+		set Row = ""
+	} else {
+		set data = $get(^CacheTemp($zname, "winData", ind))
+		set winRowId			= $listget(data, 1)
+		set winCode				= $listget(data, 2)
+		set winDesc				= $listget(data, 3)
+		set winOwner			= $listget(data, 4)
+		set winDateFrom			= $listget(data, 5)
+		set winDateTo			= $listget(data, 6)
+		set winDeprecated		= $listget(data, 7)
+		set winGenerateError	= $listget(data, 8)
+		set obsText				= $listget(data, 9)
+		set winCreatedDate		= $listget(data, 10)
+		
+		set data = $get(^CacheTemp($zname, "questRows", ind))
+		set totalRecords	= $piece(data, "^", 2)
+		set quesDate		= $piece(data, "^", 3)
+		set quesTime		= $piece(data, "^", 4)
+		set quesRowId		= $piece(data, "^", 5)
+		set quesPAPatMasDR	= $piece(data, "^", 6)
+		set quesPAAdmDR		= $piece(data, "^", 7)
+		
+		set (papmiNo, paadmAdmNo) = ""
+		
+		if (quesPAPatMasDR '= "") {
+			&SQL(
+				SELECT	%NOLOCK PAPMI_No
+				INTO	:papmiNo
+				FROM	SQLUser.PA_PatMas
+				WHERE	(PAPMI_RowId = :quesPAPatMasDR)
+			)
+		}
+		if (quesPAAdmDR '= "") {
+			&SQL(
+				SELECT	%NOLOCK PAADM_PAPMI_DR, PAADM_PAPMI_DR->PAPMI_No, PAADM_ADMNo
+				INTO	:paadmPAPMIDR, :papmiNo, :paadmAdmNo
+				FROM	SQLUser.PA_Adm
+				WHERE	(PAADM_RowId = :quesPAAdmDR)
+			)
+		}
+		set winDesc = $zstrip($translate(winDesc, $char(10)_$char(13), "  "), "*C")
+		if (winOwner = "") && (winCode '= "") set winOwner = "SITE"
+		if (quesDate '= "") set quesDate = $zdate(quesDate, 3)
+		if (quesTime '= "") set quesTime = $ztime(quesTime)
+		if ($length(winGenerateError) > 50) set winGenerateError = $extract(winGenerateError, 1, 50)_" ..."
+		if (winDeprecated = "") set winDeprecated = "N"
+		set inactive = "", today = $horolog
+		if ( (winDateFrom > today) || ((winDateTo '= "") && (winDateTo <  today)) ) set inactive = "Y"
+		if (winCreatedDate '= "") set winCreatedDate = $zdate(winCreatedDate, 3)
+		
+		set Row = $listbuild(winRowId, winCode, winDesc, winOwner, totalRecords, quesDate, quesTime, papmiNo, paadmAdmNo, quesRowId, quesPAPatMasDR, quesPAAdmDR, winCreatedDate, inactive, winDeprecated, winGenerateError, obsText)
+	}
+
+	set qHandle = $listbuild(ind)
+	quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="ListClose">
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[&qHandle:%Binary]]></FormalSpec>
+<PlaceAfter>ListExecute</PlaceAfter>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	kill ^CacheTemp($zname)
+	
+	quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="Main">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>numproc:%Integer=10,startDate:%Date=""</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	kill ^CacheTemp($zname)
+	
+	if (startDate'= "") set startDate = $zdateh(startDate,3,,,4)
+
+	set winRowId = 0
+	for {
+		set data = ""
+		set winRowId = $order(^SSU("WIN", winRowId), 1, data)	// User.SSUserDefWindow
+		if (winRowId = "") quit
+		if (data = "") continue
+		
+		set winCode				= $piece(data, "^", 1)
+		set winDesc				= $piece(data, "^", 2)
+		set winGenerateError	= $piece(data, "^", 7)
+		set winDeprecated		= $piece(data, "^", 43)
+		set winDateFrom			= $piece(data, "^", 53)
+		set winDateTo			= $piece(data, "^", 54)
+		set winCreatedDate		= $piece(data, "^", 41)
+		
+		//if winCode '= "TCEESI" continue
+		set winOwner = ##class(web.SSUserDefWindow).GetOwner(winRowId)
+		
+		set obsText = ""
+		set questionnaireClassname = ##class(web.SSUserDefWindow).CreateClassClassname(winCode)
+		set hasClass = ##class(%Dictionary.CompiledClass).%ExistsId(questionnaireClassname)
+		if ('hasClass) set obsText = "* ERROR - Class does not exist: "_questionnaireClassname
+		
+		set data = $listbuild(winRowId, winCode, winDesc, winOwner, winDateFrom, winDateTo, winDeprecated, winGenerateError, obsText, winCreatedDate)
+		set ^CacheTemp($zname, "winData", winRowId) = data
+		
+		if (winGenerateError '= "") continue
+		if ('hasClass) continue
+		
+		do ..OneQuestionnaire(numproc, winRowId, questionnaireClassname, startDate)
+	}
+]]></Implementation>
+</Method>
+
+<Method name="OneQuestionnaire">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>numproc:%Integer=10,winRowId:%String,questionnaireClassname:%String,startDate:%Date=""</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	#dim sc as %Status = $$$OK
+	
+	// multiprocess logic adapted from some conversion routine
+	
+	kill ^TMP($zname)
+	
+	set questionnaireDataLocation = "^"_ questionnaireClassname _"D"
+	set totalRecords = $get(@questionnaireDataLocation)
+	set numberOfRanges = $select(numproc>1:numproc*10, 1:1)
+	if ((numberOfRanges > totalRecords) || (totalRecords < 1000)) set numberOfRanges = 1, numproc = 1
+	set step = totalRecords\numberOfRanges
+	kill START,RANGE
+	
+	for j=1:1:numberOfRanges {
+		set start=step*(j-1)+1,end=step*j
+		if j=numberOfRanges set end=totalRecords
+		set ^TMP($zname,"range",j)=start_"^"_end
+		set RANGE(j)=""
+	}
+	for j=1:1:numproc {
+		set START(j)=""
+		if (numproc>1) { job ##class(Region.CLXX.Tools.UsageSummary.Questionnaires).Job(j,numproc, winRowId, questionnaireClassname, startDate) }
+		else { do ##class(Region.CLXX.Tools.UsageSummary.Questionnaires).Job(j,numproc, winRowId, questionnaireClassname, startDate) }
+	}
+	
+	if (numproc=1) goto endLoop
+	write !!, "***** ", questionnaireClassname
+	write !,numproc," processes, ",numberOfRanges," ranges launched at ",$zdatetime($horolog,4)
+nx
+	set j=0
+	for {
+		set j=$order(RANGE(j))
+		quit:j=""
+		if '$data(^TMP($zname,"range",j,"run")) continue
+		set s=$get(^TMP($zname,"range",j,"run")),process=$piece(s,"^"),start=$piece(s,"^",2),end=$piece(s,"^",3)
+		if '$data(RANGE(j,"START")) {set RANGE(j,"START")=1 write !,"Process ",process," started range ",j," at ",$zdatetime(start,4)}
+		if end {kill RANGE(j) write !,"Process ",process," completed range ",j," at ",$zdatetime(end,4)}
+	}
+	set j=0
+	for {
+		set j=$order(START(j))
+		quit:j=""
+		set s=$get(^TMP($zname,j,"stop")) if s'="" write !,"Process ",j," completed at ",$zdatetime(s,4) kill START(j)
+		set s=$get(^TMP($zname,"err",j)) if s'="" write !,"Process ",j," crashed at ",$zdatetime(s,4)," Error: ",$piece(s,"^",2,99) kill START(j)
+	}
+	if $data(START) hang 10 goto nx
+	set err="",j=0
+	for {
+		set j=$order(^TMP($zname,"err",j))
+		quit:j=""
+		set s=^(j)
+		if err'[$piece(s,"^",2,99) set err=err_$piece(s,"^",2,99)_","
+	}
+	
+endLoop
+	kill ^TMP($zname)
+	
+	quit sc
+]]></Implementation>
+</Method>
+
+<Method name="Job">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>j,numproc,winRowId:%String,questionnaireClassname:%String,startDate:%Date=""</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	#dim sc as %Status = $$$OK
+	
+	lock +^DBLock($zname,j):1 else  quit
+	try {
+		set range = 0
+		for {
+			set range=$order(^TMP($zname,"range",range))
+			quit:range=""
+			set s=^TMP($zname,"range",range)
+			set start=$piece(s,"^"),end=$piece(s,"^",2)
+			lock +^TMP($zname,"range",range,"run"):1 else  continue
+			if $data(^TMP($zname,"range",range,"run")) continue
+			set now = $horolog
+			set ^TMP($zname,"range",range,"run")=j_"^"_now
+			lock -^TMP($zname,"range",range,"run")
+			set ^TMP($zname, "process", j,"range", range,"1_started")=$zdatetime(now, 4)
+			
+			do ##class(Region.CLXX.Tools.UsageSummary.Questionnaires).Range(start,end,j,numproc, winRowId, questionnaireClassname, startDate)
+			
+			set now = $horolog
+			set $piece(^TMP($zname,"range",range,"run"),"^",3)=now
+			set ^TMP($zname, "process", j,"range", range,"2_finished")=$zdatetime(now, 4)
+		}
+	} catch ex {
+		set ^TMP($zname,"err",j)=$horolog_"^"_ex.AsSystemError()
+	}
+	set ^TMP($zname,j,"stop")=$horolog
+	
+	lock -^DBLock($zname,j)
+	quit sc
+]]></Implementation>
+</Method>
+
+<Method name="Range">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>start,end,j,numproc,winRowId:%String,questionnaireClassname:%String,startDate:%Date=""</FormalSpec>
+<ProcedureBlock>1</ProcedureBlock>
+<PublicList>%session</PublicList>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	#dim sc as %Status = $$$OK
+	
+		
+	kill sqlText
+	set sqlText($i(sqlText)) = " SELECT %NOLOCK ID, %INTERNAL(QUESDate) AS QUESDate, %INTERNAL(QUESTime) AS QUESTime, QUESPAPatMasDR, QUESPAAdmDR "
+	set sqlText($i(sqlText)) = " FROM "_ questionnaireClassname _" "
+	if (numproc > 1) set sqlText($i(sqlText)) = " WHERE (ID BETWEEN "_ start _" AND "_ end _") "
+	
+	set rsQues = ##class(%ResultSet).%New()
+	set prepStatus = rsQues.Prepare(.sqlText)
+	if $$$ISERR(prepStatus) {
+		goto EndRange
+	}
+	set execStatus = rsQues.Execute()
+	if $$$ISOK(execStatus) {
+		while rsQues.Next() {
+			set quesRowId		= $get(rsQues.Data("ID"))
+			set quesDate		= $get(rsQues.Data("QUESDate"))
+			set quesTime		= $get(rsQues.Data("QUESTime"))
+			set quesPAPatMasDR	= $get(rsQues.Data("QUESPAPatMasDR"))
+			set quesPAAdmDR		= $get(rsQues.Data("QUESPAAdmDR"))
+			
+			if (startDate '= "") && (quesDate < startDate) continue
+			lock +^CacheTemp($zname, "questRows", winRowId)
+			set data = $get(^CacheTemp($zname, "questRows", winRowId))
+			set $piece(data, "^", 1) = winRowId
+			set $piece(data, "^", 2) = $piece(data, "^", 2) + 1		// totalRecords
+			set dateaux = $piece(data, "^", 3)
+			set timeaux = $piece(data, "^", 4)
+			if ( (dateaux < quesDate) || ((dateaux = quesDate) && (timeaux < quesTime)) ) {
+				set $piece(data, "^", 3) = quesDate
+				set $piece(data, "^", 4) = quesTime
+				set $piece(data, "^", 5) = quesRowId
+				set $piece(data, "^", 6) = quesPAPatMasDR
+				set $piece(data, "^", 7) = quesPAAdmDR
+			}
+			set ^CacheTemp($zname, "questRows", winRowId) = data
+			lock -^CacheTemp($zname, "questRows", winRowId)
+		}
+	} else {
+	}
+	kill rsQues
+	
+EndRange
+		
+	quit sc
+]]></Implementation>
+</Method>
+</Class>
+</Export>

@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25" zv="Cache for UNIX (Red Hat Enterprise Linux for x86-64) 2015.2 (Build 664_3_16245U)" ts="2023-12-21 17:46:10">
+<Class name="Custom.Reports.ZEN.Utilities.spQuestionnariesUsage">
+<ClassType/>
+<ProcedureBlock>0</ProcedureBlock>
+<Super>Report.Abstract</Super>
+<TimeChanged>66828,52991.404703</TimeChanged>
+<TimeCreated>66828,45144.00479</TimeCreated>
+
+<Method name="MainClose">
+<Description>
+This is where all the cleanup is performed, i.e. the purging of the temporary storage global ^CacheTemp.</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>QHandle:%Library.Binary</FormalSpec>
+<ReturnType>%Library.Status</ReturnType>
+<Implementation><![CDATA[
+ // Clean up by purging the temporary node in ^CacheTemp global
+ New repid
+ Set repid = $li(QHandle,2)
+ //Start Monitor (if configured to capture stats)
+ i mon Do ..MonitorEnd(mon)
+ Kill ^CacheTemp("TRAK",repid)
+ Quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="MainExecute">
+<Description>
+This is the Execute section for the %Library.Query. 
+All of the logic will be performed here.
+A new node for the ^CacheTemp global will be created and each subscript of this global will contain</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[&QHandle:%Library.Binary,DateFrom:%String]]></FormalSpec>
+<ReturnType>%Library.Status</ReturnType>
+<Implementation><![CDATA[
+ // Get reportid i.e. use $INCREMENT to add another node to ^CacheTemp global. 
+ // We use ^CacheTemp global because it will always use memory before disk
+ New repid, ind
+  
+ // Use $Increment to get the next node
+ Set repid = $I(^CacheTemp("TRAK"))
+
+ //Start Monitor (if configured to capture stats)
+ s mon=..MonitorBegin()
+  
+ Set ind = 1
+ 
+  &sql(declare QuestionnariesCursor cursor for
+		SELECT %nolock 
+		T0.ID, T0.Description
+		into :QuestionnaireId, :QuestionnaireDesc
+		FROM %Dictionary.ClassDefinition AS T0 
+		INNER JOIN SQLUser.SS_Userdefwindow AS T1 ON T0.%ID LIKe 'questionnaire.Q%'||T1.WIN_Code
+		WHERE Name like 'questionnaire.%'
+	)
+
+	&sql(open QuestionnariesCursor)
+		quit:(SQLCODE'=0)
+ 	&sql(fetch QuestionnariesCursor)
+ 	
+ 	set i = 1
+ 	while (SQLCODE = 0) {
+	 	
+	 		set total = 0
+        	set rs=##class(%ResultSet).%New()
+        	do rs.Prepare("select count(*) from "_QuestionnaireId_" where TO_DATE(QUESCreateDate,'YYYY-MM-DD') > TO_DATE('"_DateFrom_"','YYYY-MM-DD')")
+        	do rs.Execute()
+        	if rs.Next() set total=total+rs.GetData(1)
+		
+		if total > 0
+		{
+	 	Set ^CacheTemp("TRAK",repid,ind)= $LB(
+	 		QuestionnaireId,
+	 		QuestionnaireDesc,
+	 		total
+	 		)	
+		Set ind=ind +1
+	 	Set i =  i + 1
+		}
+	 	&sql(fetch QuestionnariesCursor)
+ 	}
+    
+ 	&sql(close QuestionnariesCursor)
+ 	
+ 	If ind=1 Set ^CacheTemp("TRAK",repid,ind)=$LB("")
+
+	 // Build QHandle (AtEnd,ReportID,Index)
+	 Set QHandle=$LISTBUILD(0,repid,0)
+	 Quit $$$OK
+]]></Implementation>
+</Method>
+
+<Method name="MainFetch">
+<Description>
+This is the Fetch component of the %Library.Query. 
+This should never have to change. It is designed to fetch the row for each subscript of the ^CacheTemp
+global and return this row to the Crystal Report.</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[&QHandle:%Library.Binary,&Row:%Library.List,&AtEnd:%Library.Integer=0]]></FormalSpec>
+<ReturnType>%Library.Status</ReturnType>
+<Implementation><![CDATA[
+ // This fetch method should never have to change. 
+
+ // repid - Report ID
+ // ind   - sequence index which represents each row
+
+ New repid,ind
+
+ // Restore QHandle
+ Set AtEnd=$LI(QHandle,1)
+ Set repid=$LI(QHandle,2)
+ Set ind=$LI(QHandle,3)
+
+ Set ind=$order(^CacheTemp("TRAK",repid,ind))
+ If ind="" {	// if there are no more rows, finish fetching
+ 	Set AtEnd=1
+ 	Set Row=""
+ }  Else  {	// fetch row
+ 	Set Row=^CacheTemp("TRAK",repid,ind)
+ }
+
+ // Save QHandle
+ Set QHandle=$lb(AtEnd,repid,ind)
+ Quit $$$OK
+]]></Implementation>
+</Method>
+
+<Query name="Main">
+<Description>
+This is the Stored Procedure Template. For Sample use only.
+It expects one parameter of type integer and will return 4 fields:
+Field1 - Integer
+Field2 - String
+Field3 - Date
+Field4 - Time</Description>
+<Type>%Library.Query</Type>
+<FormalSpec>DateFrom:%String</FormalSpec>
+<SqlProc>1</SqlProc>
+<Parameter name="CONTAINID" value="0"/>
+<Parameter name="ROWSPEC" value="QuestionnaireId, QuestionnaireDesc, total"/>
+</Query>
+</Class>
+</Export>

@@ -1,0 +1,16 @@
+1. Import file (yo can use cli or studio):
+
+  1.1. CLI:
+  execute the following: set sc = $system.OBJ.LoadDir("<<nombre_de_carpeta>>/Region.CLXX.Tools.UsageSummary.Questionnaires_20231219_cache.xml", "fck /nomulticompile", .err, 1) zw sc
+  
+  1.2. Studio:
+  go to: Tools > Import Local
+  
+2. Execution:
+
+On SQL Cliente toool (WINSql, DBeaver, etc.) and execute: CALL Region_CLXX_Tools_UsageSummary.Questionnaires_List(10)
+
+
+NOTE: 
+  * This is a highly cost operation and its recomended not to use on Live enviroments, instead prefer UAT, Scratch or Train enviroments.
+  * The response time it's considerably slow
