@@ -1,0 +1,595 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="Cache" version="25" zv="Cache for UNIX (Red Hat Enterprise Linux for x86-64) 2015.2 (Build 664_3_16245U)" ts="2024-06-11 15:26:13">
+<Class name="Custom.Tools.ISC.Patients.PatientDataSkeleton">
+<Super>%RegisteredObject,%XML.Adaptor</Super>
+<TimeChanged>67002,54974.862688</TimeChanged>
+<TimeCreated>66988,48476.780118</TimeCreated>
+
+<Parameter name="ELEMENTQUALIFIED">
+<Default>1</Default>
+</Parameter>
+
+<Parameter name="NAMESPACE">
+<Default>InterSystems</Default>
+</Parameter>
+
+<Parameter name="XMLNAME">
+<Default>Patient</Default>
+</Parameter>
+
+<Parameter name="XMLSEQUENCE">
+<Default>1</Default>
+</Parameter>
+
+<Property name="NroRegistro">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="NroRegistro"/>
+</Property>
+
+<Property name="NroFicha">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="NroFicha"/>
+</Property>
+
+<Property name="TipoPaciente">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="TipoPaciente"/>
+</Property>
+
+<Property name="Nacionalidad">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="Nacionalidad"/>
+</Property>
+
+<Property name="IDNacional">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="IDNacional"/>
+</Property>
+
+<Property name="ApellidoPaterno">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ApellidoPaterno"/>
+</Property>
+
+<Property name="ApellidoMaterno">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ApellidoMaterno"/>
+</Property>
+
+<Property name="Nombres">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="Nombres"/>
+</Property>
+
+<Property name="Sexo">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="Sexo"/>
+</Property>
+
+<Property name="FechaNacimiento">
+<Type>%Date</Type>
+<Parameter name="XMLNAME" value="FechaNacimiento"/>
+</Property>
+
+<Property name="NroIdInstitucional">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="NroIdInstitucional"/>
+</Property>
+
+<Property name="PuebloOriginario">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="PuebloOriginario"/>
+</Property>
+
+<Property name="TipoEducacion">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="TipoEducacion"/>
+</Property>
+
+<Property name="Religion">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="Religion"/>
+</Property>
+
+<Property name="Direccion">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="Direccion"/>
+</Property>
+
+<Property name="Comuna">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="Comuna"/>
+</Property>
+
+<Property name="Region">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="Region"/>
+</Property>
+
+<Property name="MedioContacto">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="MedioContacto"/>
+</Property>
+
+<Property name="Celular">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="Celular"/>
+</Property>
+
+<Property name="Email">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="Email"/>
+</Property>
+
+<Property name="Prevision">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="Prevision"/>
+</Property>
+
+<Property name="CategoriaConvenio">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="CategoriaConvenio"/>
+</Property>
+
+<Property name="UnidadCobro">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="UnidadCobro"/>
+</Property>
+</Class>
+
+
+<Class name="Custom.Tools.ISC.Patients.Uploader">
+<Super>%RegisteredObject</Super>
+<TimeChanged>67002,55166.648658</TimeChanged>
+<TimeCreated>66983,42070.413014</TimeCreated>
+
+<UDLText name="T">
+<Content><![CDATA[/* Methods to process files */
+]]></Content>
+</UDLText>
+
+<Method name="UploadFormFile">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>filePath:%String,delimiter:%String="	"</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+			Set tSC = ""
+			Kill ^TMP("PatientsUploaderUploadFormFile", $USERNAME)
+			Set cantRegistros = 0
+			Try
+			{
+				Set fileExist = ##class(%File).Exists(filePath)
+				If fileExist {
+					
+					Set stream=##class(%Stream.FileCharacter).%New()
+					Set sc=stream.LinkToFile(filePath)
+					//Set stream.TranslateTable = "UTF8"
+					//Set stream.TranslateTable = "cp1252"
+					
+					While 'stream.AtEnd {
+						Set line=stream.ReadLine()
+						Set cantRegistros = cantRegistros + 1
+						Set ^TMP("PatientsUploaderUploadFormFile", $USERNAME, cantRegistros) = line
+					}
+					
+					If cantRegistros = 0 {
+						Set tSC = "No hay registros para procesar"
+					}
+					Else{
+						Set record = 1
+						For{
+							Set record = $ORDER(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record))
+							Quit:record=""
+							//Mapeo de campos
+							Set newPatient = ##class(Custom.Tools.ISC.Patients.PatientDataSkeleton).%New()
+							Set newPatient.TipoPaciente = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 1),"*C")
+							Set newPatient.Nacionalidad = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 2),"*C")
+							Set newPatient.IDNacional = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 3),"*C")
+							Set newPatient.ApellidoPaterno = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 4),"*C")
+							Set newPatient.ApellidoMaterno = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 5),"*C")
+							Set newPatient.Nombres = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 6),"*C")
+							Set newPatient.Sexo = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 7),"*C")
+							Set newPatient.FechaNacimiento = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 8),"*C")
+							Set newPatient.NroIdInstitucional = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 9),"*C")
+							Set newPatient.PuebloOriginario = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 10),"*C")
+							Set newPatient.TipoEducacion = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 11),"*C")
+							Set newPatient.Religion = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 12),"*C")
+							Set newPatient.Direccion = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 13),"*C")
+							Set newPatient.Comuna = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 14),"*C")
+							Set newPatient.Region = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 15),"*C")
+							Set newPatient.MedioContacto = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 16),"*C")
+							Set newPatient.Celular = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 17),"*C")
+							Set newPatient.Email = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 18),"*C")
+							Set newPatient.Prevision = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 19),"*C")
+							Set newPatient.CategoriaConvenio = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 20),"*C")
+							Set newPatient.UnidadCobro = $ZSTRIP($PIECE(^TMP("PatientsUploaderUploadFormFile", $USERNAME, record),delimiter, 21),"*C")
+							
+							Set oPAPatMas = ""
+							Set isPatientExist = ..FindPatientByRUT(newPatient.IDNacional, .pPAPersonIDArray)
+							If (isPatientExist<1)
+							{
+								Set addOrUpdateResponnse = ..CreateOrUpdatePatient(newPatient, .oPAPatMas)
+							}
+							ElseIf(isPatientExist=1)
+							{
+								Set oPAPatMas = ##class(User.PAPatMas).%OpenId($ORDER(pPAPersonIDArray("")))
+								Set addOrUpdateResponnse = ..CreateOrUpdatePatient(newPatient, .oPAPatMas)
+							}
+							Else
+							{
+								Set PAPatMasId=$ORDER(pPAPersonIDArray(""))
+   								While (PAPatMasId'="") {
+     								Set oPAPatMas = ##class(User.PAPatMas).%OpenId(PAPatMasId)
+     								Set addOrUpdateResponnse = ..CreateOrUpdatePatient(newPatient, .oPAPatMas)
+     								Set PAPatMasId = $ORDER(pPAPersonIDArray(PAPatMasId))
+   								}
+							}
+							
+							/*
+							Write newPatient.IDNacional_" "_newPatient.Nombres_" "_newPatient.ApellidoPaterno_" "_newPatient.ApellidoMaterno, !
+							If $isobject(oPAPatMas)
+							{
+								Write oPAPatMas.PAPMIID_" "
+								Write oPAPatMas.PAPMIRowId.PAPERName2_" "
+								Write oPAPatMas.PAPMIRowId.PAPERName_" "
+								Write oPAPatMas.PAPMIRowId.PAPERName3_" ",!
+							}
+							*/
+							
+						}
+						Set tSC = "Proceso finalizado"
+					}
+					
+				}
+				Else {
+					Set tSC = "Archivo no encontrado"
+				}
+			}
+			Catch(ex)
+			{
+				Set tSC = "Error("_ex.Code_"): "_ex.Data
+			}
+			Quit tSC
+]]></Implementation>
+</Method>
+
+<UDLText name="T">
+<Content><![CDATA[/* Methods to get info from Patient */
+]]></Content>
+</UDLText>
+
+<Method name="FindPatientByRUT">
+<Final>1</Final>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>pRUTPaciente:%String,*pPAPersonIDArray:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+			Set tSC = $SYSTEM.Status.OK()
+			Try
+			{
+				Kill pPAPersonIDArray
+				Set pPAPersonIDArray=0
+				Set pRUTPaciente=$ZCONVERT($TRANSLATE($ZSTRIP(pRUTPaciente,"<>W"),$CHAR(0)_".- ",""),"U")
+				Quit:pRUTPaciente=""
+
+				If $EXTRACT(pRUTPaciente,*)="K"
+				{
+					Set pRUTPaciente=+pRUTPaciente_"K"
+				}
+					
+				Set IDPerson=""
+				Set tKey=pRUTPaciente_"Z"
+				For
+				{
+					Set IDPerson=$ORDER(^PAPERi("PAPMI_ICPPBC",tKey,IDPerson))
+					Quit:IDPerson=""
+					Set tPool(IDPerson)=""
+				}
+				Set tSC = ..IdentifyMasterPatients(.tPool, .pPAPersonIDArray)       
+			}
+			Catch (tException)
+			{
+				Set tSC = tException.AsStatus()
+			}
+			
+			If $SYSTEM.Status.IsError(tSC)
+			{
+				//Do ##class(Region.CLXX.Integration.Nexus.CS.EventLog).LogStatus(tSC, "FindPatientByRUT", "Custom.Tools.ISC.Patients.Uploader")
+				Write tSC,!
+			}
+			
+			Quit tSC
+]]></Implementation>
+</Method>
+
+<UDLText name="T">
+<Content><![CDATA[/* Methods to get info from Patient */
+]]></Content>
+</UDLText>
+
+<Method name="IdentifyMasterPatients">
+<Final>1</Final>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>pPatMasIdArrayIn:%String,*pPatMasIdArrayOut:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+			Set tSC = $SYSTEM.Status.OK()
+			Try
+			{
+					Kill pPatMasIdArrayOut
+					Set pPAPersonIDArray=0
+					
+					Set tNextPatientId=""
+					For
+					{
+							Set tNextPatientId=$ORDER(pPatMasIdArrayIn(tNextPatientId))
+							Quit:tNextPatientId=""
+							
+							Set tPool("I",tNextPatientId)=""
+					}
+					
+					Set tQueryFindMaster="select distinct MRG_PAPMI_To_DR->PAPMI_RowId  from PA_MergePatient "_
+										"where (MRG_PAPMI_To_DR->PAPMI_RowId=? "_
+										"or MRG_PAPMI_From_DR->PAPMI_RowId=?)"
+					
+					Set tRSFindMaster=##class(%ResultSet).%New()
+					Set tSC = tRSFindMaster.Prepare(tQueryFindMaster)
+					Quit:$SYSTEM.Status.IsError(tSC)
+					
+					For
+					{
+							Set tNextPatientId=$ORDER(tPool("I",""))
+							Quit:tNextPatientId=""
+							
+							Set tSC = tRSFindMaster.Execute(tNextPatientId,tNextPatientId)
+							Quit:$SYSTEM.Status.IsError(tSC)
+							
+							Set bFound=0
+							While tRSFindMaster.Next()
+							{
+									Set bFound=1
+									Kill tPool("I",tNextPatientId)
+									Set tPool("M",tRSFindMaster.GetData(1))=""
+									
+									If tRSFindMaster.GetData(1)'=tNextPatientId
+									{
+											Kill tPool("M",tNextPatientId)
+									}
+							}
+							
+							If 'bFound
+							{
+									Kill tPool("I",tNextPatientId)
+									Set tPool("M",tNextPatientId)=""
+							}           
+					}
+					
+					Kill pPatMasIdArrayOut
+					Set pPatMasIdArrayOut=0
+					Set tNextPatientId=""
+					For
+					{
+							Set tNextPatientId=$ORDER(tPool("M",tNextPatientId))
+							Quit:tNextPatientId=""
+							
+							Set pPatMasIdArrayOut(tNextPatientId)=""
+							Set pPatMasIdArrayOut=pPatMasIdArrayOut+1
+					}
+			}
+			Catch (tException)
+			{
+					Set tSC = tException.AsStatus()
+			}
+			
+			If $SYSTEM.Status.IsError(tSC)
+			{
+					//Do ##class(Region.CLXX.Integration.Nexus.CS.EventLog).LogStatus(tSC, "IdentifyMasterPatients", "Custom.Tools.ISC.Patients.Uploader")
+					Write tSC,!
+			}
+			
+			Quit tSC
+]]></Implementation>
+</Method>
+
+<Method name="CreateOrUpdatePatient">
+<Description><![CDATA[
+TODO: Intentar grabar primero la PAPatMas, obtener el ID generado de la PAPerson que corresponda y completar los datos de la PAPerson
+<p>Creates a new patient with the data from newPatient and returns it on the second parameter pPatient.</p>
+<p>If you pass a PAPatMas object to the second parameter, this method will update the data on this object and related objects (like PAPerson)
+instead of creating a new patient.</p>]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[newPatient:Custom.Tools.ISC.Patients.PatientDataSkeleton,&pPatient:User.PAPatMas]]></FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+			Set tSC = $SYSTEM.Status.OK()
+			Try
+			{
+					/*
+					Write newPatient.IDNacional_" "_newPatient.Nombres_" "_newPatient.ApellidoPaterno_" "_newPatient.ApellidoMaterno_" "_
+					newPatient.FechaNacimiento_" "_$zdateh(newPatient.FechaNacimiento,4), !
+					If $isobject(pPatient)
+					{
+						Write pPatient.PAPMIID_" "
+						Write pPatient.PAPMIRowId.PAPERName2_" "
+						Write pPatient.PAPMIRowId.PAPERName_" "
+						Write pPatient.PAPMIRowId.PAPERName3_" "
+						Write pPatient.PAPMIDOB,!
+					}
+					*/		
+					// Valida existencia del Paciente para Crear o Actualizar.
+					If (""=pPatient)
+					{
+							Set pPatient = ##class(User.PAPatMas).%New()     
+					}
+							
+					// Actualizacion Datos del Paciente (PA_PATMAS) y Persona (PA_PERSON)
+					If (""'=newPatient.NroRegistro) Set pPatient.PAPMINo = newPatient.NroRegistro
+					If (""'=newPatient.IDNacional) Set pPatient.PAPMIID = $ZSTRIP($ZCONVERT(newPatient.IDNacional,"U"),"<>CW")
+					If (""'=newPatient.ApellidoPaterno) Set pPatient.PAPMIName = $ZCONVERT(newPatient.ApellidoPaterno,"U")
+					If (""'=newPatient.ApellidoMaterno) Set pPatient.PAPMIName3 = $ZCONVERT(newPatient.ApellidoMaterno,"U")
+					If (""'=newPatient.Nombres) Set pPatient.PAPMIName2 = $ZCONVERT(newPatient.Nombres,"U")
+					If (""'=newPatient.Sexo)
+					{
+							&sql(select CTSEX_RowId into :idSex from SQLUser.CT_Sex where UCASE(CTSEX_Desc) = UCASE(:newPatient.Sexo))
+							If SQLCODE = 0
+							{
+								If (idSex)
+								{                
+									Set pPatient.PAPMISexDR = ##class(User.CTSex).%OpenId(idSex)
+								}
+							}
+					}
+					If (""'=newPatient.FechaNacimiento)
+					{ 
+						Set pPatient.PAPMIDOB = $ZDATEH(newPatient.FechaNacimiento,4)
+					}
+					If (""'=newPatient.NroIdInstitucional) Set pPatient.PAPMIGovernCardNo = newPatient.NroIdInstitucional
+					If (""'=newPatient.PuebloOriginario)
+					{
+							&sql(select INDST_RowId into :idPO from SQLUser.PAC_IndigStatus where UCASE(INDST_Desc) = UCASE(:newPatient.PuebloOriginario))
+							If SQLCODE = 0
+							{
+								If (idPO)
+								{                
+									Set pPatient.PAPMIIndigStatDR = ##class(User.PACIndigStatus).%OpenId(idPO)
+								}
+							}
+					}
+					If (""'=newPatient.Email) Set pPatient.PAPMIEmail = $ZCONVERT(newPatient.Email,"L")
+					Set pPatient.PAPMIBlackList = "N"
+					Set pPatient.PAPMIActive = "Y"
+					Set pPatient.PAPMIDeceased = "N"
+					
+					// Se graban los datos del paciente, y posteriormente se graban los datos de la persona.
+					Set tSC = pPatient.%Save()
+					Quit:$SYSTEM.Status.IsError(tSC)
+					
+					If (""'=newPatient.TipoPaciente)
+					{
+							&sql(select PTYPE_RowId into :idTP from SQLUser.PAC_PatientType where UCASE(PTYPE_Desc) = UCASE(:newPatient.TipoPaciente))
+							If SQLCODE = 0
+							{
+								If (idTP)
+								{                
+									Set pPatient.PAPMIRowId.PAPERPatTypeDR = ##class(User.PACPatientType).%OpenId(idTP)
+								}
+							}
+					}
+					If (""'=newPatient.Nacionalidad)
+					{
+							&sql(select CTNAT_RowId into :idNat from SQLUser.CT_Nation where UCASE(CTNAT_Desc) = UCASE(:newPatient.Nacionalidad))
+							If SQLCODE = 0
+							{
+								If (idNat)
+								{                
+									Set pPatient.PAPMIRowId.PAPERNationDR = ##class(User.CTNation).%OpenId(idNat)
+								}
+							}
+					}
+					Set newPatient.TipoEducacion=$TRANSLATE(newPatient.TipoEducacion,$CHAR(0),"")
+					If (""'=newPatient.TipoEducacion)
+					{
+						
+							&sql(select EDU_RowId into :idEdu from SQLUser.CT_Education where UCASE(EDU_Desc) = UCASE(:newPatient.TipoEducacion))
+							If SQLCODE = 0
+							{
+								If (idEdu)
+								{                
+									Set pPatient.PAPMIRowId.PAPEREducationDR = ##class(User.CTEducation).%OpenId(idEdu)
+								}
+							}  
+					}
+					Set newPatient.Religion=$TRANSLATE(newPatient.Religion,$CHAR(0),"")
+					If (""'=newPatient.Religion)
+					{
+							&sql(select CTRLG_RowId into :idReg from SQLUser.CT_Religion where UCASE(CTRLG_Desc) = UCASE(:newPatient.Religion))
+							If SQLCODE = 0
+							{
+								If (idReg)
+								{                
+									Set pPatient.PAPMIRowId.PAPERReligionDR = ##class(User.CTReligion).%OpenId(idReg)
+								}
+							}
+					}
+					Set newPatient.Direccion=$TRANSLATE(newPatient.Direccion,$CHAR(0),"")
+					If (""'=newPatient.Direccion)
+					{
+							Do pPatient.PAPMIRowId.PAPERStName.Clear()
+							Do pPatient.PAPMIRowId.PAPERStName.Insert($ZCONVERT(newPatient.Direccion,"U"))
+					}
+					If (""'=newPatient.Comuna)
+					{
+							&sql(select CTCIT_RowId into :idCIT from SQLUser.CT_City where UCASE(CTCIT_Desc) = UCASE(:newPatient.Comuna))
+							If SQLCODE = 0
+							{
+								If (idCIT)
+								{                
+									Set pPatient.PAPMIRowId.PAPERCityCodeDR = ##class(User.CTCity).%OpenId(idCIT)
+								}
+							}
+					}
+					If (""'=newPatient.Region)
+					{
+							&sql(select CTRG_RowId into :idRegion from SQLUser.CT_Region where UCASE(CTRG_Desc) = UCASE(:newPatient.Region))
+							If SQLCODE = 0
+							{
+								If (idRegion)
+								{                
+									Set pPatient.PAPMIRowId.PAPERCTRegionDR = ##class(User.CTCity).%OpenId(idRegion)
+								}
+							}
+					}
+					If (""'=newPatient.MedioContacto) Set pPatient.PAPMIRowId.PAPERPreferredContactMethod = newPatient.MedioContacto
+					If (""'=newPatient.Celular) Set pPatient.PAPMIRowId.PAPERMobPhone = newPatient.Celular
+					If (""'=newPatient.Prevision)
+					{
+							&sql(select INST_RowId into :idPrev from SQLUser.ARC_InsuranceType where UCASE(INST_Desc) = UCASE(:newPatient.Prevision))
+							If SQLCODE = 0
+							{
+								If (idPrev)
+								{                
+									Set pPatient.PAPMIRowId.PAPERInsTypeDR = ##class(User.ARCInsuranceType).%OpenId(idPrev)
+								}
+							}
+					}
+					If (""'=newPatient.CategoriaConvenio)
+					{
+							&sql(select AUXIT_RowId into :idConv from SQLUser.ARC_AuxilInsurType where UCASE(AUXIT_Desc) = UCASE(:newPatient.CategoriaConvenio))
+							If SQLCODE = 0
+							{
+								If (idConv)
+								{                
+									Set pPatient.PAPMIRowId.PAPERAuxInsTypeDR = ##class(User.ARCAuxilInsurType).%OpenId(idConv)
+								}
+							}
+					}
+					If (""'=newPatient.UnidadCobro)
+					{
+							&sql(select HCP_RowId into :idCob from SQLUser.CT_HealthCareProvider where UCASE(HCP_Desc) = UCASE(:newPatient.UnidadCobro))
+							If SQLCODE = 0
+							{
+								If (idCob)
+								{                
+									Set pPatient.PAPMIRowId.PAPERHCPDR = ##class(User.CTHealthCareProvider).%OpenId(idCob)
+								}
+							}
+					}
+					
+					Set tSC = pPatient.%Save()
+					Quit:$SYSTEM.Status.IsError(tSC)
+			}
+			Catch (tException)
+			{
+					Set tSC = tException.AsStatus() 
+			}
+			
+			If $SYSTEM.Status.IsError(tSC)
+			{
+					//Do ##class(Region.CLXX.Integration.Nexus.CS.EventLog).LogStatus(tSC, "CreateOrUpdatePatient", "Custom.Tools.ISC.Patients.Uploader")
+					Write tSC,!
+			}
+			Quit tSC
+]]></Implementation>
+</Method>
+</Class>
+</Export>
