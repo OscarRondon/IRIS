@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-22 09:40:19">
+<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-22 12:02:19">
 <Class name="Custom.Tools.ISC.ItemMaster.ItemMastDataSkeleton">
 <Super>%RegisteredObject,%XML.Adaptor</Super>
 <TimeChanged>67073,47997.964638613</TimeChanged>
@@ -93,7 +93,7 @@ Location and Revision of this file in Perforce (Auto-updating)</Description>
 
 <Class name="Custom.Tools.ISC.ItemMaster.Uploader">
 <Super>%RegisteredObject</Super>
-<TimeChanged>67073,49653.522034192</TimeChanged>
+<TimeChanged>67074,43290.730552412</TimeChanged>
 <TimeCreated>67072,48931.586467693</TimeCreated>
 
 <Parameter name="SrcVer">
@@ -154,24 +154,31 @@ Location and Revision of this file in Perforce (Auto-updating)</Description>
 							Set newItemMast.ARCIMDMDFormDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 11),"*C")
 							Set newItemMast.ARCIMDMDStrengthDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 12),"*C")
 							
-							
-							
 							Set oARCItmMast = ""
-							Set oARCItmMast =  ##class(User.ARCItmMast).%OpenId(newItemMast.ARCIMCode)
+							&sql(
+								DECLARE ItmMast CURSOR FOR 
+       							SELECT ARCIM_RowId INTO :ARCIMRowId  FROM SQLUser.ARC_ItmMast WHERE ARCIM_Code = :newItemMast.ARCIMCode
+       						)
+  							&sql(OPEN ItmMast)
+      						if SQLCODE =0
+      						{
+  								&sql(FETCH ItmMast)
+  								WHILE (SQLCODE = 0) {
+									Set oARCItmMast =  ##class(User.ARCItmMast).%OpenId(ARCIMRowId)
+									/*
+									If $isobject(oARCItmMast)
+									{
+										Write oARCItmMast.ARCIMCode_" "
+										Write oARCItmMast.ARCIMDesc_" "
+										Write oARCItmMast.ARCIMAbbrev_" "
+										Write oARCItmMast.ARCIMItemCatDR_" ",!
+									}
+									*/
+    								&sql(FETCH ItmMast) 
+    							}
+  								&sql(CLOSE ItmMast)
+      						}
 							Set addOrUpdateResponnse = ..CreateOrUpdateItemMaster(newItemMast, .oARCItmMast)
-							
-							/*
-							Write newItemMast.ARCIMCode_" "_newItemMast.ARCIMDesc, !
-							If $isobject(oARCItmMast)
-							{
-								Write oARCItmMast.ARCIMCode_" "
-								Write oARCItmMast.ARCIMDesc_" "
-								Write oARCItmMast.ARCIMAbbrev_" "
-								Write oARCItmMast.ARCIMItemCatDR_" ",!
-							}
-							*/
-							
-							
 						}
 						Set tSC = "Proceso finalizado"
 					}
@@ -202,19 +209,19 @@ instead of creating a new ItemMast.</p>]]></Description>
 			Try
 			{
 					/*
-					Write newPatient.IDNacional_" "_newPatient.Nombres_" "_newPatient.ApellidoPaterno_" "_newPatient.ApellidoMaterno_" "_
-					newPatient.FechaNacimiento_" "_$zdateh(newPatient.FechaNacimiento,4), !
-					If $isobject(pPatient)
-					{
-						Write pPatient.PAPMIID_" "
-						Write pPatient.PAPMIRowId.PAPERName2_" "
-						Write pPatient.PAPMIRowId.PAPERName_" "
-						Write pPatient.PAPMIRowId.PAPERName3_" "
-						Write pPatient.PAPMIDOB,!
-					}
-					*/
-					/*
-					Write newItemMast.ARCIMCode_" "_newItemMast.ARCIMDesc, !
+					Write newItemMast.ARCIMCode_" ", !
+					Write newItemMast.ARCIMDesc_" ", !
+					Write newItemMast.ARCIMAbbrev_" ", !
+					Write newItemMast.ARCIMItemCatDR_" ", !
+					Write newItemMast.ARCIMEffDate_" ", !
+					Write newItemMast.ARCIMOrderOnItsOwn_" ", !
+					Write newItemMast.ARCIMAllowOrderWOStockCheck_" ", !
+					Write newItemMast.ARCIMBillSubDR_" ", !
+					Write newItemMast.ARCIMDMDLevel_" ", !
+					Write newItemMast.ARCIMDMDGenericDR_" ", !
+					Write newItemMast.ARCIMDMDFormDR_" ", !
+					Write newItemMast.ARCIMDMDStrengthDR, !
+					
 					If $isobject(pItem)
 					{
 						Write pItem.ARCIMCode_" "
@@ -243,8 +250,6 @@ instead of creating a new ItemMast.</p>]]></Description>
 					If (""'=newItemMast.ARCIMDMDGenericDR) Set pItem.ARCIMDMDGenericDR = ##class(User.PHCGeneric).%OpenId($ZCONVERT(newItemMast.ARCIMDMDGenericDR,"U"))
 					If (""'=newItemMast.ARCIMDMDFormDR) Set pItem.ARCIMDMDFormDR = ##class(User.PHCForm).%OpenId($ZCONVERT(newItemMast.ARCIMDMDFormDR,"U"))
 					If (""'=newItemMast.ARCIMDMDStrengthDR) Set pItem.ARCIMDMDStrengthDR = ##class(User.PHCStrength).%OpenId($ZCONVERT(newItemMast.ARCIMDMDStrengthDR,"U"))
-					
-					
 					
 					Set tSC = pItem.%Save()
 					Quit:$SYSTEM.Status.IsError(tSC)
