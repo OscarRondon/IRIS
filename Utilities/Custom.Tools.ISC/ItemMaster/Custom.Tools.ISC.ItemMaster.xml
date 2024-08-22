@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-22 09:40:19">
+<Class name="Custom.Tools.ISC.ItemMaster.ItemMastDataSkeleton">
+<Super>%RegisteredObject,%XML.Adaptor</Super>
+<TimeChanged>67073,47997.964638613</TimeChanged>
+<TimeCreated>67073,40108.956772655</TimeCreated>
+
+<Parameter name="SrcVer">
+<Description>
+Location and Revision of this file in Perforce (Auto-updating)</Description>
+<Default>$Id$</Default>
+</Parameter>
+
+<Parameter name="ELEMENTQUALIFIED">
+<Default>1</Default>
+</Parameter>
+
+<Parameter name="NAMESPACE">
+<Default>InterSystems</Default>
+</Parameter>
+
+<Parameter name="XMLNAME">
+<Default>ItemMaster</Default>
+</Parameter>
+
+<Parameter name="XMLSEQUENCE">
+<Default>1</Default>
+</Parameter>
+
+<Property name="ARCIMCode">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIMCode"/>
+</Property>
+
+<Property name="ARCIMDesc">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIMDesc"/>
+</Property>
+
+<Property name="ARCIMAbbrev">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIM_Abbrev"/>
+</Property>
+
+<Property name="ARCIMItemCatDR">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIMItemCatDR"/>
+</Property>
+
+<Property name="ARCIMEffDate">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIMEffDate"/>
+</Property>
+
+<Property name="ARCIMOrderOnItsOwn">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIMOrderOnItsOwn"/>
+</Property>
+
+<Property name="ARCIMAllowOrderWOStockCheck">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIMAllowOrderWOStockCheck"/>
+</Property>
+
+<Property name="ARCIMBillSubDR">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIMBillSubDR"/>
+</Property>
+
+<Property name="ARCIMDMDLevel">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIMDMDLevel"/>
+</Property>
+
+<Property name="ARCIMDMDGenericDR">
+<Type>%Date</Type>
+<Parameter name="XMLNAME" value="ARCIMDMDGenericDR"/>
+</Property>
+
+<Property name="ARCIMDMDFormDR">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIM_DMDForm_DR"/>
+</Property>
+
+<Property name="ARCIMDMDStrengthDR">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="ARCIMDMDStrengthDR"/>
+</Property>
+</Class>
+
+
+
+
+<Class name="Custom.Tools.ISC.ItemMaster.Uploader">
+<Super>%RegisteredObject</Super>
+<TimeChanged>67073,49653.522034192</TimeChanged>
+<TimeCreated>67072,48931.586467693</TimeCreated>
+
+<Parameter name="SrcVer">
+<Description>
+Location and Revision of this file in Perforce (Auto-updating)</Description>
+<Default>$Id$</Default>
+</Parameter>
+
+<UDLText name="T">
+<Content><![CDATA[/* Methods to process files */
+]]></Content>
+</UDLText>
+
+<Method name="UploadFormFile">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>filePath:%String,delimiter:%String="	"</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+			Set tSC = ""
+			Kill ^TMP("MasterItemsUploaderUploadFormFile", $USERNAME)
+			Set cantRegistros = 0
+			Try
+			{
+				Set fileExist = ##class(%File).Exists(filePath)
+				If fileExist {
+					
+					Set stream=##class(%Stream.FileCharacter).%New()
+					Set sc=stream.LinkToFile(filePath)
+					//Set stream.TranslateTable = "UTF8"
+					//Set stream.TranslateTable = "cp1252"
+					
+					While 'stream.AtEnd {
+						Set line=stream.ReadLine()
+						Set cantRegistros = cantRegistros + 1
+						Set ^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, cantRegistros) = line
+					}
+					
+					If cantRegistros = 0 {
+						Set tSC = "No hay registros para procesar"
+					}
+					Else{
+						Set record = 1
+						For{
+							Set record = $ORDER(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record))
+							Quit:record=""
+							//Mapeo de campos
+							Set newItemMast = ##class(Custom.Tools.ISC.ItemMaster.ItemMastDataSkeleton).%New()
+							Set newItemMast.ARCIMCode = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 1),"*C")
+							Set newItemMast.ARCIMDesc = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 2),"*C")
+							Set newItemMast.ARCIMAbbrev = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 3),"*C")
+							Set newItemMast.ARCIMItemCatDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 4),"*C")
+							Set newItemMast.ARCIMEffDate = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 5),"*C")
+							Set newItemMast.ARCIMOrderOnItsOwn = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 6),"*C")
+							Set newItemMast.ARCIMAllowOrderWOStockCheck = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 7),"*C")
+							Set newItemMast.ARCIMBillSubDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 8),"*C")
+							Set newItemMast.ARCIMDMDLevel = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 9),"*C")
+							Set newItemMast.ARCIMDMDGenericDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 10),"*C")
+							Set newItemMast.ARCIMDMDFormDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 11),"*C")
+							Set newItemMast.ARCIMDMDStrengthDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderUploadFormFile", $USERNAME, record),delimiter, 12),"*C")
+							
+							
+							
+							Set oARCItmMast = ""
+							Set oARCItmMast =  ##class(User.ARCItmMast).%OpenId(newItemMast.ARCIMCode)
+							Set addOrUpdateResponnse = ..CreateOrUpdateItemMaster(newItemMast, .oARCItmMast)
+							
+							/*
+							Write newItemMast.ARCIMCode_" "_newItemMast.ARCIMDesc, !
+							If $isobject(oARCItmMast)
+							{
+								Write oARCItmMast.ARCIMCode_" "
+								Write oARCItmMast.ARCIMDesc_" "
+								Write oARCItmMast.ARCIMAbbrev_" "
+								Write oARCItmMast.ARCIMItemCatDR_" ",!
+							}
+							*/
+							
+							
+						}
+						Set tSC = "Proceso finalizado"
+					}
+					
+				}
+				Else {
+					Set tSC = "Archivo no encontrado"
+				}
+			}
+			Catch(ex)
+			{
+				Set tSC = "Error("_ex.Code_"): "_ex.Data
+			}
+			Quit tSC
+]]></Implementation>
+</Method>
+
+<Method name="CreateOrUpdateItemMaster">
+<Description><![CDATA[
+<p>Creates a new Item Master with the data from newItemMast</p>
+<p>If you pass a ARCItmMast object to the second parameter, this method will update the data on this object and related objects
+instead of creating a new ItemMast.</p>]]></Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[newItemMast:Custom.Tools.ISC.Patients.PatientDataSkeleton,&pItem:User.ARCItmMast]]></FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+			Set tSC = $SYSTEM.Status.OK()
+			Try
+			{
+					/*
+					Write newPatient.IDNacional_" "_newPatient.Nombres_" "_newPatient.ApellidoPaterno_" "_newPatient.ApellidoMaterno_" "_
+					newPatient.FechaNacimiento_" "_$zdateh(newPatient.FechaNacimiento,4), !
+					If $isobject(pPatient)
+					{
+						Write pPatient.PAPMIID_" "
+						Write pPatient.PAPMIRowId.PAPERName2_" "
+						Write pPatient.PAPMIRowId.PAPERName_" "
+						Write pPatient.PAPMIRowId.PAPERName3_" "
+						Write pPatient.PAPMIDOB,!
+					}
+					*/
+					/*
+					Write newItemMast.ARCIMCode_" "_newItemMast.ARCIMDesc, !
+					If $isobject(pItem)
+					{
+						Write pItem.ARCIMCode_" "
+						Write pItem.ARCIMDesc_" "
+						Write pItem.ARCIMAbbrev_" "
+						Write pItem.ARCIMItemCatDR_" ",!
+					}
+					*/	
+					
+					// Valida existencia del Item Master para Crear o Actualizar.
+					If (""=pItem)
+					{
+							Set pItem = ##class(User.ARCItmMast).%New()     
+					}
+							
+					// Actualizacion Datos del Item
+					If (""'=newItemMast.ARCIMCode) Set pItem.ARCIMCode = newItemMast.ARCIMCode
+					If (""'=newItemMast.ARCIMDesc) Set pItem.ARCIMDesc = $ZCONVERT(newItemMast.ARCIMDesc,"U")
+					If (""'=newItemMast.ARCIMAbbrev) Set pItem.ARCIMAbbrev = $ZCONVERT(newItemMast.ARCIMAbbrev,"U")
+					If (""'=newItemMast.ARCIMItemCatDR) Set pItem.ARCIMItemCatDR = ##class(User.ARCItemCat).%OpenId($ZCONVERT(newItemMast.ARCIMItemCatDR,"U"))
+					If (""'=newItemMast.ARCIMEffDate) Set pItem.ARCIMEffDate =  $ZDATEH(newItemMast.ARCIMEffDate,4)
+					If (""'=newItemMast.ARCIMOrderOnItsOwn) Set pItem.ARCIMOrderOnItsOwn = $ZCONVERT(newItemMast.ARCIMOrderOnItsOwn,"U")
+					If (""'=newItemMast.ARCIMAllowOrderWOStockCheck) Set pItem.ARCIMAllowOrderWOStockCheck = $ZCONVERT(newItemMast.ARCIMAllowOrderWOStockCheck,"U")
+					If (""'=newItemMast.ARCIMBillSubDR) Set pItem.ARCIMBillSubDR = ##class(User.ARCBillSub).%OpenId($ZCONVERT(newItemMast.ARCIMBillSubDR,"U"))
+					If (""'=newItemMast.ARCIMDMDLevel) Set pItem.ARCIMDMDLevel = $ZCONVERT(newItemMast.ARCIMDMDLevel,"U")
+					If (""'=newItemMast.ARCIMDMDGenericDR) Set pItem.ARCIMDMDGenericDR = ##class(User.PHCGeneric).%OpenId($ZCONVERT(newItemMast.ARCIMDMDGenericDR,"U"))
+					If (""'=newItemMast.ARCIMDMDFormDR) Set pItem.ARCIMDMDFormDR = ##class(User.PHCForm).%OpenId($ZCONVERT(newItemMast.ARCIMDMDFormDR,"U"))
+					If (""'=newItemMast.ARCIMDMDStrengthDR) Set pItem.ARCIMDMDStrengthDR = ##class(User.PHCStrength).%OpenId($ZCONVERT(newItemMast.ARCIMDMDStrengthDR,"U"))
+					
+					
+					
+					Set tSC = pItem.%Save()
+					Quit:$SYSTEM.Status.IsError(tSC)
+			}
+			Catch (tException)
+			{
+					Set tSC = tException.AsStatus() 
+			}
+			
+			If $SYSTEM.Status.IsError(tSC)
+			{
+					//Do ##class(Region.CLXX.Integration.Nexus.CS.EventLog).LogStatus(tSC, "CreateOrUpdateItemMaster", "Custom.Tools.ISC.ItemMaster.Uploader")
+					Write tSC,!
+			}
+			Quit tSC
+]]></Implementation>
+</Method>
+</Class>
+</Export>
