@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-22 12:02:19">
+<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-23 09:07:26">
 <Class name="Custom.Tools.ISC.ItemMaster.ItemMastDataSkeleton">
 <Super>%RegisteredObject,%XML.Adaptor</Super>
 <TimeChanged>67073,47997.964638613</TimeChanged>
@@ -93,7 +93,7 @@ Location and Revision of this file in Perforce (Auto-updating)</Description>
 
 <Class name="Custom.Tools.ISC.ItemMaster.Uploader">
 <Super>%RegisteredObject</Super>
-<TimeChanged>67074,43290.730552412</TimeChanged>
+<TimeChanged>67074,49355.503562549</TimeChanged>
 <TimeCreated>67072,48931.586467693</TimeCreated>
 
 <Parameter name="SrcVer">
@@ -196,6 +196,101 @@ Location and Revision of this file in Perforce (Auto-updating)</Description>
 ]]></Implementation>
 </Method>
 
+<Method name="DeleteFormFile">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>filePath:%String,delimiter:%String="	"</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+			Set tSC = ""
+			Kill ^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME)
+			Set cantRegistros = 0
+			Try
+			{
+				Set fileExist = ##class(%File).Exists(filePath)
+				If fileExist {
+					
+					Set stream=##class(%Stream.FileCharacter).%New()
+					Set sc=stream.LinkToFile(filePath)
+					//Set stream.TranslateTable = "UTF8"
+					//Set stream.TranslateTable = "cp1252"
+					
+					While 'stream.AtEnd {
+						Set line=stream.ReadLine()
+						Set cantRegistros = cantRegistros + 1
+						Set ^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, cantRegistros) = line
+					}
+					
+					If cantRegistros = 0 {
+						Set tSC = "No hay registros para procesar"
+					}
+					Else{
+						Set record = 1
+						For{
+							Set record = $ORDER(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record))
+							Quit:record=""
+							//Mapeo de campos
+							Set newItemMast = ##class(Custom.Tools.ISC.ItemMaster.ItemMastDataSkeleton).%New()
+							Set newItemMast.ARCIMCode = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 1),"*C")
+							Set newItemMast.ARCIMDesc = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 2),"*C")
+							Set newItemMast.ARCIMAbbrev = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 3),"*C")
+							Set newItemMast.ARCIMItemCatDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 4),"*C")
+							Set newItemMast.ARCIMEffDate = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 5),"*C")
+							Set newItemMast.ARCIMOrderOnItsOwn = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 6),"*C")
+							Set newItemMast.ARCIMAllowOrderWOStockCheck = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 7),"*C")
+							Set newItemMast.ARCIMBillSubDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 8),"*C")
+							Set newItemMast.ARCIMDMDLevel = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 9),"*C")
+							Set newItemMast.ARCIMDMDGenericDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 10),"*C")
+							Set newItemMast.ARCIMDMDFormDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 11),"*C")
+							Set newItemMast.ARCIMDMDStrengthDR = $ZSTRIP($PIECE(^TMP("MasterItemsUploaderDeleteFormFile", $USERNAME, record),delimiter, 12),"*C")
+							
+							Set oARCItmMast = ""
+							&sql(
+								DECLARE ItmMast CURSOR FOR 
+       							SELECT ARCIM_RowId INTO :ARCIMRowId  FROM SQLUser.ARC_ItmMast WHERE ARCIM_Code = :newItemMast.ARCIMCode
+       						)
+  							&sql(OPEN ItmMast)
+      						if SQLCODE =0
+      						{
+  								&sql(FETCH ItmMast)
+  								WHILE (SQLCODE = 0) {
+									Set oARCItmMast =  ##class(User.ARCItmMast).%OpenId(ARCIMRowId)
+									/*
+									If $isobject(oARCItmMast)
+									{
+										Write oARCItmMast.ARCIMCode_" "
+										Write oARCItmMast.ARCIMDesc_" "
+										Write oARCItmMast.ARCIMAbbrev_" "
+										Write oARCItmMast.ARCIMItemCatDR_" ",!
+									}
+									*/
+									Set tSC = ##class(User.ARCItmMast).%DeleteId(ARCIMRowId)
+									If $$$ISERR(tSC) {
+										Write newItemMast.ARCIMCode_" ", !
+										Write $System.Status.GetErrorText(tSC),!
+										Write !
+										//Quit:$SYSTEM.Status.IsError(tSC)
+									}
+    								&sql(FETCH ItmMast) 
+    							}
+  								&sql(CLOSE ItmMast)
+      						}
+						}
+						Set tSC = "Proceso de borrado finalizado"
+					}
+					
+				}
+				Else {
+					Set tSC = "Archivo no encontrado"
+				}
+			}
+			Catch(ex)
+			{
+				Set tSC = "Error("_ex.Code_"): "_ex.Data
+			}
+			Quit tSC
+]]></Implementation>
+</Method>
+
 <Method name="CreateOrUpdateItemMaster">
 <Description><![CDATA[
 <p>Creates a new Item Master with the data from newItemMast</p>
@@ -221,7 +316,7 @@ instead of creating a new ItemMast.</p>]]></Description>
 					Write newItemMast.ARCIMDMDGenericDR_" ", !
 					Write newItemMast.ARCIMDMDFormDR_" ", !
 					Write newItemMast.ARCIMDMDStrengthDR, !
-					
+					Write "---------",!
 					If $isobject(pItem)
 					{
 						Write pItem.ARCIMCode_" "
@@ -252,17 +347,17 @@ instead of creating a new ItemMast.</p>]]></Description>
 					If (""'=newItemMast.ARCIMDMDStrengthDR) Set pItem.ARCIMDMDStrengthDR = ##class(User.PHCStrength).%OpenId($ZCONVERT(newItemMast.ARCIMDMDStrengthDR,"U"))
 					
 					Set tSC = pItem.%Save()
-					Quit:$SYSTEM.Status.IsError(tSC)
+					If $$$ISERR(tSC) {
+						Write newItemMast.ARCIMCode_" ", !
+						Write $System.Status.GetErrorText(tSC),!
+						Write !
+						//Quit:$SYSTEM.Status.IsError(tSC)
+					}
+					
 			}
 			Catch (tException)
 			{
 					Set tSC = tException.AsStatus() 
-			}
-			
-			If $SYSTEM.Status.IsError(tSC)
-			{
-					//Do ##class(Region.CLXX.Integration.Nexus.CS.EventLog).LogStatus(tSC, "CreateOrUpdateItemMaster", "Custom.Tools.ISC.ItemMaster.Uploader")
-					Write tSC,!
 			}
 			Quit tSC
 ]]></Implementation>
