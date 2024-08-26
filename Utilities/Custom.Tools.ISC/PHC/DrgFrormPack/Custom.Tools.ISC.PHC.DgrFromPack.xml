@@ -1,0 +1,398 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-26 16:37:38">
+<Class name="Custom.Tools.ISC.PHC.DgrFromPack.DgrFromPackSkeleton">
+<Super>%RegisteredObject,%XML.Adaptor</Super>
+<TimeChanged>67075,53275.211284646</TimeChanged>
+<TimeCreated>67075,38349.715233201</TimeCreated>
+
+<Parameter name="SrcVer">
+<Description>
+Location and Revision of this file in Perforce (Auto-updating)</Description>
+<Default>$Id$</Default>
+</Parameter>
+
+<Parameter name="ELEMENTQUALIFIED">
+<Default>1</Default>
+</Parameter>
+
+<Parameter name="NAMESPACE">
+<Default>InterSystems</Default>
+</Parameter>
+
+<Parameter name="XMLNAME">
+<Default>ItemMaster</Default>
+</Parameter>
+
+<Parameter name="XMLSEQUENCE">
+<Default>1</Default>
+</Parameter>
+
+<Property name="PHCDCode">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="PHCDCode"/>
+</Property>
+
+<Property name="PHCDName">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="PHCDName"/>
+</Property>
+
+<Property name="PHCDFRowId">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="PHCDFRowId"/>
+</Property>
+
+<Property name="PHCDFDescription">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="PHCDFDescription"/>
+</Property>
+
+<Property name="PACKDateFrom">
+<Type>%String</Type>
+<Parameter name="XMLNAME" value="PACKDateFrom"/>
+</Property>
+</Class>
+
+
+
+
+<Class name="Custom.Tools.ISC.PHC.DgrFromPack.Uploader">
+<TimeChanged>67078,45015.748952199</TimeChanged>
+<TimeCreated>67075,38167.190276323</TimeCreated>
+
+<Parameter name="SrcVer">
+<Description>
+Location and Revision of this file in Perforce (Auto-updating)</Description>
+<Default>$Id$</Default>
+</Parameter>
+
+<UDLText name="T">
+<Content><![CDATA[/* Methods to process files */
+]]></Content>
+</UDLText>
+
+<Method name="UploadFormFile">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>filePath:%String,delimiter:%String="	",debug:%Boolean=0,upload:%Boolean=1</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+			Set tSC = ""
+			Kill ^TMP("DGRFPUploaderUploadFormFile", $USERNAME)
+			Set cantRegistros = 0
+			Try
+			{
+				Set fileExist = ##class(%File).Exists(filePath)
+				If fileExist {
+					
+					Set stream=##class(%Stream.FileCharacter).%New()
+					Set sc=stream.LinkToFile(filePath)
+					//Set stream.TranslateTable = "UTF8"
+					//Set stream.TranslateTable = "cp1252"
+					
+					While 'stream.AtEnd {
+						Set line=stream.ReadLine()
+						Set cantRegistros = cantRegistros + 1
+						Set ^TMP("DGRFPUploaderUploadFormFile", $USERNAME, cantRegistros) = line
+					}
+					
+					If cantRegistros = 0 {
+						Set tSC = "No hay registros para procesar"
+					}
+					Else{
+						Set record = 1
+						For{
+							Set record = $ORDER(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record))
+							Quit:record=""
+							//Mapeo de campos
+							Set newDgrFromPack = ##class(Custom.Tools.ISC.PHC.DgrFromPack.DgrFromPackSkeleton).%New()
+							Set newDgrFromPack.PHCDCode = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 1),"*C")
+							Set newDgrFromPack.PHCDName = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 2),"*C")
+							Set newDgrFromPack.PHCDFRowId = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 3),"*C")
+							Set newDgrFromPack.PHCDFDescription = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 4),"*C")
+							Set newDgrFromPack.PACKDateFrom = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 5),"*C")
+							
+							Set oPHCDgrMast = ""
+							&sql(
+								DECLARE DrgMast CURSOR FOR 
+       							SELECT PHCD_RowId INTO :PHCDRowId  FROM SQLUser.PHC_DrgMast WHERE PHCD_Code = :newDgrFromPack.PHCDCode
+       						)
+  							&sql(OPEN DrgMast)
+      						If SQLCODE =0
+      						{
+  								&sql(FETCH DrgMast)
+  								While (SQLCODE = 0) {
+									Set oPHCDgrMast =  ##class(User.PHCDrgMast).%OpenId(PHCDRowId)
+									
+									If debug = 1
+									{
+										If $ISOBJECT(oPHCDgrMast)
+										{
+											Write "PHCDCode: "_oPHCDgrMast.PHCDCode_" "
+											Write "PHCDName: "_oPHCDgrMast.PHCDName_" ",!
+										}
+									}
+									Set addOrUpdateResponse = ..CreateOrUpdate(newDgrFromPack, .oPHCDgrMast, debug, upload)
+									if debug Write "___________________________________________________________________________",!
+    								&sql(FETCH DrgMast) 
+    							}
+  								&sql(CLOSE DrgMast)
+      						}
+      						Else
+      						{
+	      						If debug
+								{
+									Write "PHCDCode: "_newDgrFromPack.PHCDCode_" "
+									Write "PHCDName: "_newDgrFromPack.PHCDName_" ",!
+
+								}
+								Set addOrUpdateResponse = ..CreateOrUpdate(newDgrFromPack, .oPHCDgrMast, debug, upload)
+								if debug Write "___________________________________________________________________________",!
+      						}
+						}
+						Set tSC = "Proceso finalizado"
+					}
+					
+				}
+				Else {
+					Set tSC = "Archivo no encontrado"
+				}
+			}
+			Catch(ex)
+			{
+				Set tSC = "Error("_ex.Code_"): "_ex.Data
+			}
+			Quit tSC
+]]></Implementation>
+</Method>
+
+<Method name="DeleteFormFile">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>filePath:%String,delimiter:%String="	",debug:%Boolean=0,upload:%Boolean=1</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+			Set tSC = ""
+			Kill ^TMP("DGRFPUploaderUploadFormFile", $USERNAME)
+			Set cantRegistros = 0
+			Try
+			{
+				Set fileExist = ##class(%File).Exists(filePath)
+				If fileExist {
+					
+					Set stream=##class(%Stream.FileCharacter).%New()
+					Set sc=stream.LinkToFile(filePath)
+					//Set stream.TranslateTable = "UTF8"
+					//Set stream.TranslateTable = "cp1252"
+					
+					While 'stream.AtEnd {
+						Set line=stream.ReadLine()
+						Set cantRegistros = cantRegistros + 1
+						Set ^TMP("DGRFPUploaderUploadFormFile", $USERNAME, cantRegistros) = line
+					}
+					
+					If cantRegistros = 0 {
+						Set tSC = "No hay registros para procesar"
+					}
+					Else{
+						Set record = 1
+						For{
+							Set record = $ORDER(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record))
+							Quit:record=""
+							//Mapeo de campos
+							Set newDgrFromPack = ##class(Custom.Tools.ISC.ItemMaster.ItemMastDataSkeleton).%New()
+							Set newDgrFromPack.PHCDCode = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 1),"*C")
+							Set newDgrFromPack.PHCDName = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 2),"*C")
+							Set newDgrFromPack.PHCDFRowId = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 3),"*C")
+							Set newDgrFromPack.PHCDFDescription = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 4),"*C")
+							Set newDgrFromPack.PACKDateFrom = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 5),"*C")
+							
+							Set oPHCDgrFromPack = ""
+							&sql(
+								DECLARE DrgFromPack CURSOR FOR 
+       							SELECT ARCIM_RowId INTO :ARCIMRowId  FROM SQLUser.ARC_DrgFromPack WHERE ARCIM_Code = :newItemMast.ARCIMCode
+       						)
+  							&sql(OPEN DrgFromPack)
+      						If SQLCODE =0
+      						{
+  								&sql(FETCH DrgFromPack)
+  								While (SQLCODE = 0) {
+									Set oPHCDgrFromPack =  ##class(User.PCHDgrFromPack).%OpenId(PHCDRowId)
+									/*
+									If $isobject(oARCItmMast)
+									{
+										Write oARCItmMast.ARCIMCode_" "
+										Write oARCItmMast.ARCIMDesc_" "
+										Write oARCItmMast.ARCIMAbbrev_" "
+										Write oARCItmMast.ARCIMItemCatDR_" ",!
+									}
+									*/
+									Set tSC = ##class(User.ARCItmMast).%DeleteId(PHCDRowId)
+									If $$$ISERR(tSC) {
+										Write newDgrFromPack.ARCIMCode_" ", !
+										Write $SYSTEM.Status.GetErrorText(tSC),!
+										Write !
+										//Quit:$SYSTEM.Status.IsError(tSC)
+									}
+    								&sql(FETCH DrgFromPack) 
+    							}
+  								&sql(CLOSE DrgFromPack)
+      						}
+						}
+						Set tSC = "Proceso de borrado finalizado"
+					}
+					
+				}
+				Else {
+					Set tSC = "Archivo no encontrado"
+				}
+			}
+			Catch(ex)
+			{
+				Set tSC = "Error("_ex.Code_"): "_ex.Data
+			}
+			Quit tSC
+]]></Implementation>
+</Method>
+
+<Method name="CreateOrUpdate">
+<ClassMethod>1</ClassMethod>
+<FormalSpec><![CDATA[newDgrFromPack:Custom.Tools.ISC.PHC.DgrFromPack.DgrFromPackSkeleton,&oPHCDgrMast:User.PHCDrgMast,debug:%Boolean,upload:%Boolean]]></FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+			Set tSC = $SYSTEM.Status.OK()
+			Try
+			{
+					
+					If debug
+					{
+						Write "---------",!
+						Write "newDgrFromPack.PHCDCode: "_newDgrFromPack.PHCDCode_" ",!
+						Write "newDgrFromPack.PHCDName: "_newDgrFromPack.PHCDName_" ",!
+						Write "newDgrFromPack.PHCDFRowId: "_newDgrFromPack.PHCDFRowId_" ",!
+						Write "newDgrFromPack.PHCDFDescription: "_newDgrFromPack.PHCDFDescription_" ",!
+						Write "newDgrFromPack.PACKDateFrom: "_newDgrFromPack.PACKDateFrom_" ",!
+						
+						Write "---------",!
+						If $ISOBJECT(oPHCDgrMast)
+						{
+							Write "oPHCDgrMast.PHCDCode: "_oPHCDgrMast.PHCDCode_" ",!
+							Write "oPHCDgrMast.PHCDName: "_oPHCDgrMast.PHCDName_" ",!
+							Write "oPHCDgrMast.ChildPHCDrgForm.Count(): "_oPHCDgrMast.ChildPHCDrgForm.Count() _" ",!
+						}
+					}	
+					
+					Set tNroReg = 0
+					Set tRowId = ""
+					Set tSecuencial = 0
+					
+					If (""=oPHCDgrMast)
+					{
+						/*
+						Set oPHCDgrMast = ##class(User.PCHDrgMast).%New()
+						Set tSecuencial = 1
+						*/
+						Set tSC = $SYSTEM.Status.Error(-1001001, "Item de farmacia no existe")		
+					}
+					else
+					{
+						If oPHCDgrMast.ChildPHCDrgForm.Count() > 0
+						{
+							Set tDgrMastId = oPHCDgrMast.%Id()
+							&sql(
+								declare Ident cursor for
+								select  ROW_NUMBER() AS NroReg, PHCDF_RowId into :tNroReg, :tRowId from SQLUser.PHC_DrgForm 
+								where 
+								1=1
+								and PHCDF_RowId like :tDgrMastId_'||%'
+								order by PHCDF_ChildSub
+							)
+							&sql(CLOSE Ident)
+							&sql(OPEN Ident)
+      						If SQLCODE =0
+      						{
+ 								&sql(FETCH Ident)
+ 								While (SQLCODE = 0) {
+	 								if tRowId = newDgrFromPack.PHCDFRowId Set tSecuencial = tNroReg 
+	 								&sql(FETCH Ident)
+ 								}
+ 								&sql(CLOSE Ident)
+ 								if tSecuencial = 0 Set tSecuencial = oPHCDgrMast.ChildPHCDrgForm.Count()+1
+      						}
+      						if tSecuencial = 0 Set tSecuencial = 1		
+						}
+						else
+						{
+							Set tSecuencial = 1
+						}
+						
+						Set oPHCDrgForm = ##class(User.PHCDrgForm).%OpenId(newDgrFromPack.PHCDFRowId)
+						if '$ISOBJECT(oPHCDrgForm)
+						{
+							Set oPHCDrgForm = ##class(User.PHCDrgForm).%New()
+						}
+					
+					
+						Set tPACKRowId = 0
+						&sql(select PACK_RowId into :tPACKRowId  from SQLUser.PHC_DrgFormPack where PACK_ParRef = :newDgrFromPack.PHCDFRowId)
+						if SQLCODE = 0
+						{
+							Set oPHCDrgFromPack = ##class(User.PHCDrgFormPack).%OpenId(tPACKRowId)
+						}
+						else
+						{
+							Set oPHCDrgFromPack = ##class(User.PHCDrgFormPack).%New()
+						}
+						
+						//Data creation or update PCH_DrgForm
+						Set oPHCDrgForm.PHCDFDescription = newDgrFromPack.PHCDFDescription
+						Set oPHCDrgForm.PHCDFMIMSno = newDgrFromPack.PHCDCode_"."_tSecuencial
+						Set oPHCDrgForm.PHCDFPHCDParRef = oPHCDgrMast
+						if upload Set tSC = oPHCDrgForm.%Save()
+						If $$$ISERR(tSC) {
+							Write newDgrFromPack.PHCDCode_" - "_newDgrFromPack.PHCDFRowId_" ", !
+							Write $SYSTEM.Status.GetErrorText(tSC),!
+							Write !
+						}
+						
+						//Data creation or update PCH_DrgFormPack
+						Set oPHCDrgFromPack.PACKMIMSno = newDgrFromPack.PHCDCode_"."_tSecuencial
+						Set oPHCDrgFromPack.PACKDescription = newDgrFromPack.PHCDFDescription
+						Set oPHCDrgFromPack.PACKPHCPADR = ##class(User.PHCPack).%OpenId("1")
+						Set oPHCDrgFromPack.PACKDateFrom = $ZDATEH(newDgrFromPack.PACKDateFrom,4)
+						Set oPHCDrgFromPack.PACKFormulary = "Y"
+						Set oPHCDrgFromPack.PACKParRef = oPHCDrgForm
+						if upload Set tSC = oPHCDrgFromPack.%Save()
+						If $$$ISERR(tSC) {
+							Write newDgrFromPack.PHCDCode_" - "_newDgrFromPack.PHCDFRowId_" ", !
+							Write $SYSTEM.Status.GetErrorText(tSC),!
+							Write !
+						}
+							
+						// Actualizacion Datos
+						/*
+						If (""'=newDgrFromPack.PHCDCode) Set pItem.ARCIMCode = newItemMast.ARCIMCode
+						If (""'=newDgrFromPack.ARCIMDesc) Set pItem.ARCIMDesc = $ZCONVERT(newItemMast.ARCIMDesc,"U")
+						If (""'=newDgrFromPack.ARCIMAbbrev) Set pItem.ARCIMAbbrev = $ZCONVERT(newItemMast.ARCIMAbbrev,"U")
+						If (""'=newDgrFromPack.ARCIMItemCatDR) Set pItem.ARCIMItemCatDR = ##class(User.ARCItemCat).%OpenId($ZCONVERT(newItemMast.ARCIMItemCatDR,"U"))
+						If (""'=newDgrFromPack.ARCIMEffDate) Set pItem.ARCIMEffDate =  $ZDATEH(newItemMast.ARCIMEffDate,4)
+					
+						*/
+					
+						if upload Set tSC = oPHCDgrMast.%Save()
+						If $$$ISERR(tSC) {
+							Write newDgrFromPack.PHCDCode_" - "_newDgrFromPack.PHCDFRowId_" ", !
+							Write $SYSTEM.Status.GetErrorText(tSC),!
+							Write !
+						}
+					}
+					
+			}
+			Catch (tException)
+			{
+					Set tSC = tException.AsStatus()
+					if debug Write tSC 
+			}
+			Quit tSC
+]]></Implementation>
+</Method>
+</Class>
+</Export>
