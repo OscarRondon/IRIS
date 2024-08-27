@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-23 09:07:26">
+<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-27 17:40:09">
 <Class name="Custom.Tools.ISC.ItemMaster.ItemMastDataSkeleton">
 <Super>%RegisteredObject,%XML.Adaptor</Super>
 <TimeChanged>67073,47997.964638613</TimeChanged>
@@ -93,7 +93,7 @@ Location and Revision of this file in Perforce (Auto-updating)</Description>
 
 <Class name="Custom.Tools.ISC.ItemMaster.Uploader">
 <Super>%RegisteredObject</Super>
-<TimeChanged>67074,49355.503562549</TimeChanged>
+<TimeChanged>67079,63476.030439229</TimeChanged>
 <TimeCreated>67072,48931.586467693</TimeCreated>
 
 <Parameter name="SrcVer">
@@ -360,6 +360,83 @@ instead of creating a new ItemMast.</p>]]></Description>
 					Set tSC = tException.AsStatus() 
 			}
 			Quit tSC
+]]></Implementation>
+</Method>
+
+<Method name="UpdateARCItmMastPHCDrgFormPack">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>debug:%Boolean=0</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	Set tSC = ""
+	Try
+	{
+		&sql(
+			DECLARE ItmMast CURSOR FOR 
+       		SELECT 
+			ARCIM_RowId,
+			ARCIM_Code,
+			ARCIM_Desc,
+			ARCIM_PHCDF_DR,
+			ARCIM_PHCDF_DR->PHCDF_MIMSno,
+			ARCIM_DMDLevel,
+			(SELECT PACK_RowId FROM SQLUser.PHC_DrgFormPack WHERE PACK_MIMSno = ARCIM_PHCDF_DR->PHCDF_MIMSno) "PACKRowId",
+			(SELECT PACK_MIMSno FROM SQLUser.PHC_DrgFormPack WHERE PACK_MIMSno = ARCIM_PHCDF_DR->PHCDF_MIMSno) "PACKMIMSno",
+			ARCIM_DrgFormPack_DR,
+			ARCIM_DrgFormPack_DR->PACK_MIMSno
+			INTO
+			:ARCIMRowId,
+			:ARCIMCode,
+			:ARCIMDesc,
+			:ARCIMPHCDFDR,
+			:PHCDFMIMSno,
+			:ARCIMDMDLevel,
+			:PACKRowIdQ,
+			:PACKMIMSnoQ,
+			:ARCIMDrgFormPackDR,
+			:PACKMIMSno
+			FROM SQLUser.ARC_ItmMast
+			WHERE 
+			1=1
+			AND (ARCIM_DMDLevel <> 'VMP' OR ARCIM_DMDLevel IS NULL)
+			AND ARCIM_Desc LIKE '%FUROSEMIDA%'
+       	)
+  		&sql(OPEN ItmMast)
+      	If SQLCODE =0
+      	{
+  			&sql(FETCH ItmMast)
+  			While (SQLCODE = 0) {
+				//Set oPHCDgrMast =  ##class(User.PHCDrgMast).%OpenId(PHCDRowId)
+									
+				If debug = 1
+				{
+					Write "ARCIMRowId: "_ARCIMRowId_" ",!
+					Write "ARCIMCode: "_ARCIMCode_" ",!
+					Write "ARCIMDesc: "_ARCIMDesc_" ",!
+					Write "ARCIMPHCDFDR: "_ARCIMPHCDFDR_" ",!
+					Write "PHCDFMIMSno: "_PHCDFMIMSno_" ",!
+					Write "ARCIMDMDLevel: "_ARCIMDMDLevel_" ",!
+					Write "PACKRowIdQ: "_PACKRowIdQ_" ",!
+					Write "PACKMIMSnoQ: "_PACKMIMSnoQ_" ",!
+					Write "ARCIMDrgFormPackDR: "_ARCIMDrgFormPackDR_" ",!
+					Write "PACKMIMSno: "_PACKMIMSno_" ",!
+				}
+				//Set addOrUpdateResponse = ..CreateOrUpdate(newDgrFromPack, .oPHCDgrMast, debug, upload)
+				if debug Write "___________________________________________________________________________",!
+    			&sql(FETCH ItmMast) 
+    		}
+  			&sql(CLOSE ItmMast)
+      	}
+      	Else
+      	{
+	     	Write "SQLCODE: "_SQLCODE,!
+      	}			
+	}
+	Catch(ex)
+	{
+		Set tSC = "Error("_ex.Code_"): "_ex.Data
+	}
+	Quit tSC
 ]]></Implementation>
 </Method>
 </Class>
