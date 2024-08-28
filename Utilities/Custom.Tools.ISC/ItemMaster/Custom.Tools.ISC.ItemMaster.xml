@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-27 17:40:09">
+<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-28 11:16:11">
 <Class name="Custom.Tools.ISC.ItemMaster.ItemMastDataSkeleton">
 <Super>%RegisteredObject,%XML.Adaptor</Super>
 <TimeChanged>67073,47997.964638613</TimeChanged>
@@ -93,7 +93,7 @@ Location and Revision of this file in Perforce (Auto-updating)</Description>
 
 <Class name="Custom.Tools.ISC.ItemMaster.Uploader">
 <Super>%RegisteredObject</Super>
-<TimeChanged>67079,63476.030439229</TimeChanged>
+<TimeChanged>67080,40208.722685049</TimeChanged>
 <TimeCreated>67072,48931.586467693</TimeCreated>
 
 <Parameter name="SrcVer">
@@ -365,7 +365,7 @@ instead of creating a new ItemMast.</p>]]></Description>
 
 <Method name="UpdateARCItmMastPHCDrgFormPack">
 <ClassMethod>1</ClassMethod>
-<FormalSpec>debug:%Boolean=0</FormalSpec>
+<FormalSpec>debug:%Boolean=0,upload:%Boolean=0</FormalSpec>
 <ReturnType>%String</ReturnType>
 <Implementation><![CDATA[
 	Set tSC = ""
@@ -399,29 +399,49 @@ instead of creating a new ItemMast.</p>]]></Description>
 			WHERE 
 			1=1
 			AND (ARCIM_DMDLevel <> 'VMP' OR ARCIM_DMDLevel IS NULL)
-			AND ARCIM_Desc LIKE '%FUROSEMIDA%'
+			AND ARCIM_Desc LIKE '%METRONIDAZOL%'
        	)
   		&sql(OPEN ItmMast)
       	If SQLCODE =0
       	{
   			&sql(FETCH ItmMast)
   			While (SQLCODE = 0) {
-				//Set oPHCDgrMast =  ##class(User.PHCDrgMast).%OpenId(PHCDRowId)
-									
+				Set oARCItmMast = ##class(User.ARCItmMast).%OpenId(ARCIMRowId)
+				Set oPHCDrgFromPack = ##class(User.PHCDrgFormPack).%OpenId(PACKRowIdQ)
 				If debug = 1
 				{
-					Write "ARCIMRowId: "_ARCIMRowId_" ",!
-					Write "ARCIMCode: "_ARCIMCode_" ",!
-					Write "ARCIMDesc: "_ARCIMDesc_" ",!
-					Write "ARCIMPHCDFDR: "_ARCIMPHCDFDR_" ",!
-					Write "PHCDFMIMSno: "_PHCDFMIMSno_" ",!
-					Write "ARCIMDMDLevel: "_ARCIMDMDLevel_" ",!
-					Write "PACKRowIdQ: "_PACKRowIdQ_" ",!
-					Write "PACKMIMSnoQ: "_PACKMIMSnoQ_" ",!
-					Write "ARCIMDrgFormPackDR: "_ARCIMDrgFormPackDR_" ",!
-					Write "PACKMIMSno: "_PACKMIMSno_" ",!
+					if $ISOBJECT(oARCItmMast)
+					{
+						Write "oARCItmMast.ARCIMRowId: "_oARCItmMast.%Id()_" ",!
+						Write "oARCItmMast.ARCIMCode: "_oARCItmMast.ARCIMCode_" ",!
+						Write "oARCItmMast.ARCIMDesc: "_oARCItmMast.ARCIMDesc_" ",!
+						Write "oARCItmMast.ARCIMPHCDFDR: "_oARCItmMast.ARCIMPHCDFDR.%Id()_" ",!
+						Write "oARCItmMast.PHCDFMIMSno: "_oARCItmMast.ARCIMPHCDFDR.PHCDFMIMSno_" ",!
+						Write "oARCItmMast.ARCIMDMDLevel: "_oARCItmMast.ARCIMDMDLevel_" ",!
+						Write "Query.PACKRowIdQ: "_PACKRowIdQ_" ",!
+						Write "Query.PACKMIMSnoQ: "_PACKMIMSnoQ_" ",!
+					}
+					else
+					{
+						Write "Query.ARCIMRowId: "_ARCIMRowId_" ",!
+						Write "Query.ARCIMCode: "_ARCIMCode_" ",!
+						Write "Query.ARCIMDesc: "_ARCIMDesc_" ",!
+						Write "Query.ARCIMPHCDFDR: "_ARCIMPHCDFDR_" ",!
+						Write "Query.PHCDFMIMSno: "_PHCDFMIMSno_" ",!
+						Write "Query.ARCIMDMDLevel: "_ARCIMDMDLevel_" ",!
+						Write "Query.PACKRowIdQ: "_PACKRowIdQ_" ",!
+						Write "Query.PACKMIMSnoQ: "_PACKMIMSnoQ_" ",!
+						Write "Query.ARCIMDrgFormPackDR: "_ARCIMDrgFormPackDR_" ",!
+						Write "Query.PACKMIMSno: "_PACKMIMSno_" ",!
+					}
 				}
-				//Set addOrUpdateResponse = ..CreateOrUpdate(newDgrFromPack, .oPHCDgrMast, debug, upload)
+				Set oARCItmMast.ARCIMDMDLevel = "AMPP"
+				Set oARCItmMast.ARCIMDrgFormPackDR = oPHCDrgFromPack
+				if upload Set tSC = oARCItmMast.%Save()
+				If $$$ISERR(tSC) {
+					Write "--------- ERROR --------", !
+					Write $SYSTEM.Status.GetErrorText(tSC),!
+				}
 				if debug Write "___________________________________________________________________________",!
     			&sql(FETCH ItmMast) 
     		}
@@ -435,6 +455,15 @@ instead of creating a new ItemMast.</p>]]></Description>
 	Catch(ex)
 	{
 		Set tSC = "Error("_ex.Code_"): "_ex.Data
+		if debug Write tSC,! 
+	}
+	if upload 
+	{
+		Set tSC = "Proceso finalizado - Data guardada"
+	}
+	else 
+	{
+		Set tSC = "Proceso finalizado - Modo revision sin guardado de data"
 	}
 	Quit tSC
 ]]></Implementation>
