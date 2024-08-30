@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-28 11:21:11">
+<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-08-30 12:37:04">
 <Class name="Custom.Tools.ISC.ItemMaster.ItemMastDataSkeleton">
 <Super>%RegisteredObject,%XML.Adaptor</Super>
 <TimeChanged>67073,47997.964638613</TimeChanged>
@@ -93,7 +93,7 @@ Location and Revision of this file in Perforce (Auto-updating)</Description>
 
 <Class name="Custom.Tools.ISC.ItemMaster.Uploader">
 <Super>%RegisteredObject</Super>
-<TimeChanged>67080,40208.722685049</TimeChanged>
+<TimeChanged>67082,45379.876989927</TimeChanged>
 <TimeCreated>67072,48931.586467693</TimeCreated>
 
 <Parameter name="SrcVer">
@@ -399,7 +399,7 @@ instead of creating a new ItemMast.</p>]]></Description>
 			WHERE 
 			1=1
 			AND (ARCIM_DMDLevel <> 'VMP' OR ARCIM_DMDLevel IS NULL)
-			AND ARCIM_Desc LIKE '%METRONIDAZOL%'
+			AND ARCIM_ItemCat_DR->ARCIC_OrdCat_DR  = '265'
        	)
   		&sql(OPEN ItmMast)
       	If SQLCODE =0
