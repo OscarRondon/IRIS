@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-10-14 17:29:17">
+<Class name="Custom.Tools.ISC.SS.Misc">
+<TimeChanged>67127,59153.469862562</TimeChanged>
+<TimeCreated>67113,48773.30037756</TimeCreated>
+
+<Method name="AddProfileOrderCategory">
+<ClassMethod>1</ClassMethod>
+<FormalSpec>filePathProfiles:%String,filePathProfileOrderCategories:%String,delimiter:%String="	",debug:%Boolean=0,upload:%Boolean=1</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	Set tSC = ""
+	
+	Kill ^TMP("ProfilesFile", $USERNAME)
+	Kill ^TMP("ProfileOrderCategoriesFile", $USERNAME)
+	
+	Set cantRegistrosProfiles = 0
+	Set cantRegistrosProfileOrderCategories = 0
+	
+	Try
+	{
+		Set ProfileFilesExist = ##class(%File).Exists(filePathProfiles)
+		Set ProfileOrderCategoriesFilesExist = ##class(%File).Exists(filePathProfileOrderCategories)
+		
+		If ProfileFilesExist &  ProfileOrderCategoriesFilesExist{
+			
+			Set streamProfiles=##class(%Stream.FileCharacter).%New()
+			Set sc=streamProfiles.LinkToFile(filePathProfiles)
+			While 'streamProfiles.AtEnd {
+				Set line=streamProfiles.ReadLine()
+				Set cantRegistrosProfiles = cantRegistrosProfiles + 1
+				Set ^TMP("ProfilesFile", $USERNAME, cantRegistrosProfiles) = line
+			}
+			If cantRegistrosProfiles = 0 {
+				Set tSC = "No hay registros para procesar Profiles"
+			}
+			
+			Set streamProfileOrderCategories=##class(%Stream.FileCharacter).%New()
+			Set sc=streamProfileOrderCategories.LinkToFile(filePathProfileOrderCategories)
+			While 'streamProfileOrderCategories.AtEnd {
+				Set line=streamProfileOrderCategories.ReadLine()
+				Set cantRegistrosProfileOrderCategories = cantRegistrosProfileOrderCategories + 1
+				Set ^TMP("ProfileOrderCategoriesFile", $USERNAME, cantRegistrosProfileOrderCategories) = line
+			}
+					
+			If cantRegistrosProfileOrderCategories = 0 {
+				Set tSC = "No hay registros para procesar OrderCategories"
+			}
+			
+			if tSC = ""
+			{		
+				Set recordProfiles = 1
+				For{
+					Set recordProfiles = $ORDER(^TMP("ProfilesFile", $USERNAME, recordProfiles))
+					Quit:recordProfiles=""
+					//Mapeo de campos
+					
+					Set profileId = $ZSTRIP($PIECE(^TMP("ProfilesFile", $USERNAME, recordProfiles),delimiter, 1),"*C")
+					Set profileDesc = $ZSTRIP($PIECE(^TMP("ProfilesFile", $USERNAME, recordProfiles),delimiter, 2),"*C")
+					
+					Set tProfile = ##class(User.SSProfile).%OpenId(profileId)
+					if $ISOBJECT(tProfile)
+					{
+						If debug = 1
+						{
+							If $ISOBJECT(tProfile)
+							{
+								Write !
+								Write "ProfileId: "_tProfile.%Id()_" "
+								Write "ProfileDesc: "_tProfile.SSPDesc_" ",!
+								Write "--------------------------------------------------------------",!
+							}
+						}
+						
+						Set recordProfileOrderCategory = 1
+						For
+						{
+							Set recordProfileOrderCategory = $ORDER(^TMP("ProfileOrderCategoriesFile", $USERNAME, recordProfileOrderCategory))
+							Quit:recordProfileOrderCategory=""
+							Set ORCATId = $ZSTRIP($PIECE(^TMP("ProfileOrderCategoriesFile", $USERNAME, recordProfileOrderCategory),delimiter, 1),"*C")
+							&sql(
+								SELECT %ID INTO :ProfileOrderCategoryId  FROM SQLUser.SS_ProfileOrderCategory 
+								WHERE 
+								1 = 1
+								AND OC_ParRef = :profileId
+								AND OC_OrdCat_DR = :ORCATId
+    						)
+    						If SQLCODE =0
+      						{
+	      						If debug = 1
+								{
+	      							Write "Si ProfileOrderCategoryId: "_ProfileOrderCategoryId_" ",!
+								}
+      						}
+      						Else
+      						{
+	      						Set tOrderCagory = ##class(User.OECOrderCategory).%OpenId(ORCATId)
+	      						Set newProfrileOrderCagory = ##class(User.SSProfileOrderCategory).%New()
+	      						Set newProfrileOrderCagory.OCParRef = tProfile
+	      						Set newProfrileOrderCagory.OCOrdCatDR = tOrderCagory
+	      						
+	      						if upload Set tSC = newProfrileOrderCagory.%Save()
+								If $$$ISERR(tSC) {
+									Write $SYSTEM.Status.GetErrorText(tSC),!
+									Write !
+								}
+	      						If debug = 1
+								{
+	      							Write "New ProfileOrderCategoryId: "_ProfileOrderCategoryId_" ",!
+								}
+      						}
+						}
+						
+						
+					}
+					
+					/*
+					Set newDgrFromPack.PHCDCode = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 1),"*C")
+					Set newDgrFromPack.PHCDName = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 2),"*C")
+					Set newDgrFromPack.PHCDFRowId = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 3),"*C")
+					Set newDgrFromPack.PHCDFDescription = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 4),"*C")
+					Set newDgrFromPack.PACKDateFrom = $ZSTRIP($PIECE(^TMP("DGRFPUploaderUploadFormFile", $USERNAME, record),delimiter, 5),"*C")
+					
+					
+					&sql(
+						SELECT %ID INTO :ProfileOrderCategoryId  FROM SQLUser.SS_ProfileOrderCategory 
+						WHERE PHCD_Code = :newDgrFromPack.PHCDCode
+    				)
+    				
+      				If SQLCODE =0
+      				{
+  						&sql(FETCH DrgMast)
+  						While (SQLCODE = 0) {
+							Set oPHCDgrMast =  ##class(User.PHCDrgMast).%OpenId(PHCDRowId)
+							
+							If debug = 1
+							{
+								If $ISOBJECT(oPHCDgrMast)
+								{
+									Write "PHCDCode: "_oPHCDgrMast.PHCDCode_" "
+									Write "PHCDName: "_oPHCDgrMast.PHCDName_" ",!
+								}
+							}
+							//Set addOrUpdateResponse = ..CreateOrUpdate(newDgrFromPack, .oPHCDgrMast, debug, upload)
+							if debug Write "___________________________________________________________________________",!
+    						&sql(FETCH DrgMast) 
+    					}
+  						&sql(CLOSE DrgMast)
+      				}
+      				Else
+      				{
+	    				If debug
+						{
+							Write "PHCDCode: "_newDgrFromPack.PHCDCode_" "
+							Write "PHCDName: "_newDgrFromPack.PHCDName_" ",!	
+
+						}	
+						//Set addOrUpdateResponse = ..CreateOrUpdate(newDgrFromPack, .oPHCDgrMast, debug, upload)
+						if debug Write "___________________________________________________________________________",!
+      				}
+      				*/
+				}
+				Set tSC = "Proceso finalizado"
+			}
+		}
+		Else {
+			Set tSC = "Archivo no encontrado"
+		}
+	}
+	Catch(ex)
+	{
+		Set tSC = "Error("_ex.Code_"): "_ex.Data
+	}
+	Quit tSC
+]]></Implementation>
+</Method>
+
+<Parameter name="SrcVer">
+<Description>
+Location and Revision of this file in Perforce (Auto-updating)</Description>
+<Default>$Id: //custom_ccrs/cl/HMIL/T2024/BASE/cls/Custom/Tools/ISC/SS/Misc.xml#1 $</Default>
+</Parameter>
+</Class>
+</Export>
