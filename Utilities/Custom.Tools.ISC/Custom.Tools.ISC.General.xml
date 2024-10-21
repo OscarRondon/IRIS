@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Export generator="IRIS" version="26" zv="IRIS for UNIX (Red Hat Enterprise Linux 9 for x86-64) 2023.1.1 (Build 380_0_22870U)" ts="2024-10-21 12:07:49">
+<Class name="Custom.Tools.ISC.General">
+<Description>
+Created By: Oscar Rondon, 21/03/2024, CCR HMIL0883, JIRA N/A</Description>
+<Abstract>1</Abstract>
+<TimeChanged>67134,43033.646751412</TimeChanged>
+<TimeCreated>66921,48533.875839335</TimeCreated>
+
+<Method name="RBAppoitmentMassStatusChange">
+<Description>
+Created By: Oscar Rondon, 21/03/2024, CCR HMIL0883, JIRA CELTECH-4313
+Massive Update for Appoitments status by year</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>Year:%Integer,OldStatus:%String,NewStatus:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	
+	Set sc = $$$OK
+	Try{
+	
+		Set (tApptRowid, tPatientId) = ""
+		
+		&sql(Declare tAppoitmens Cursor  for 
+			select 
+			%NOLOCK APPT_RowId, APPT_PAPMI_DR
+			into :tApptRowid, :tPatientId
+			from sqluser.RB_Appointment
+			where year(APPT_TransDate) = :Year
+			and APPT_Status = :OldStatus
+		)
+		
+		&sql(OPEN tAppoitmens)
+			Quit:(SQLCODE'=0)
+		
+		&sql(FETCH tAppoitmens)
+		
+		Set cont = 1
+		While (SQLCODE=0) 
+		{
+			If tApptRowid'=""
+			{
+				&SQL(update %NOTRIGGER sqluser.RB_Appointment  set APPT_Status = :NewStatus where APPT_RowId = :tApptRowid)
+					If SQLCODE=0
+					{
+						Set horolog=$HOROLOG
+						Set date=+horolog ///	$zdate(+horolog,4)
+						Set time=$PIECE(horolog,",",2)	///$ztime($piece(horolog,",",2),2)
+						
+						Set obj=##class(questionnaire.QCLXXTPEC).%New()
+						If $GET(%d(4))'="" Set obj.QUESPAPatMasDR=##class(User.PAPatMas).%OpenId($GET(%d(4))) ///	PatientID
+						//if $get(%d(1))'="" set obj.QUESRBAppointmentDR=##class(User.RBAppointment).%OpenId($get(%d(1)))	/// Appointment ID
+						Set obj.Q01=date
+						Set obj.Q02=time
+						Set obj.Q03=$USERNAME
+						//	2021-04-13	change status S > Z		TC-290911
+						Set obj.Q04=NewStatus ///	APPT_Status
+						Set obj.Q05=tPatientId ///	PatientID
+						Set obj.Q06=tApptRowid	/// Appointment ID
+						Do obj.%Save()
+					}
+			}
+			Set cont = cont + 1
+			&sql(FETCH tAppoitmens)
+		} 
+		&sql(CLOSE tAppoitmens)
+	}
+	Catch(ex){
+		Set sc = $$$ADDSC(sc,ex.AsStatus())
+		Do ##class(Region.CLXX.Integration.Nexus.CS.EventLog).LogStatus(sc, 
+			"RBAppoitmentMassStatusChange", 
+			"Custom.Tools.ISC.General")		
+	}
+	Quit sc
+]]></Implementation>
+</Method>
+
+<Method name="RBAppoitmentMassStatusChangeExecution">
+<Description>
+Created By: Oscar Rondon, 25/03/2024, CCR N/A, JIRA CELTECH-4313
+Massive Execution for massive Update for Appoitments status by year</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>YearInit:%Integer,YearEnd:%Integer,OldStatus:%String,NewStatus:%String</FormalSpec>
+<ReturnType>%Status</ReturnType>
+<Implementation><![CDATA[
+	Try{
+		Set count = YearInit
+		While(count < YearEnd){
+			Do ##class(Custom.Tools.ISC.General).RBAppoitmentMassStatusChange(count,OldStatus,NewStatus)
+			Set count = count + 1 
+		}
+	}
+	Catch(ex){
+		Set sc = $$$ADDSC(sc,ex.AsStatus())
+		Do ##class(Region.CLXX.Integration.Nexus.CS.EventLog).LogStatus(sc, 
+			"RBAppoitmentMassStatusChange", 
+			"Custom.Tools.ISC.General")		
+	}
+	Quit sc
+]]></Implementation>
+</Method>
+
+<Method name="AddUpdateConfigRegestryFormFile">
+<Description>
+Created By: Oscar Rondon, 21/10/2024, CCR N/A, JIRA N/A
+Massive Execution for massive Add and/or Update Custom_Nexus_CS.ConfigRegestry</Description>
+<ClassMethod>1</ClassMethod>
+<FormalSpec>filePath:%String,delimiter:%String="	",debug:%Boolean=0,upload:%Boolean=1</FormalSpec>
+<ReturnType>%String</ReturnType>
+<Implementation><![CDATA[
+	Set tSC = ""
+	Kill ^TMP("Custom.Nexus.CS.ConfigRegestry", $USERNAME)
+	Set cantRegistros = 0
+	Try
+	{
+		Set fileExist = ##class(%File).Exists(filePath)
+		If fileExist {
+		
+			Set stream=##class(%Stream.FileCharacter).%New()
+			Set sc=stream.LinkToFile(filePath)
+				
+			While 'stream.AtEnd {
+				Set line=stream.ReadLine()
+				Set cantRegistros = cantRegistros + 1
+				Set ^TMP("Custom.Nexus.CS.ConfigRegestry", $USERNAME, cantRegistros) = line
+			}
+					
+			If cantRegistros = 0 {
+				Set tSC = "No hay registros para procesar"
+			}
+			Else{
+				Set record = 1
+				For{
+					Set record = $ORDER(^TMP("Custom.Nexus.CS.ConfigRegestry", $USERNAME, record))
+					Quit:record=""
+					//Mapeo de campos
+					Set tId = $ZSTRIP($PIECE(^TMP("Custom.Nexus.CS.ConfigRegestry", $USERNAME, record),delimiter, 1),"*C")
+					Set tActive = $ZSTRIP($PIECE(^TMP("Custom.Nexus.CS.ConfigRegestry", $USERNAME, record),delimiter, 2),"*C")
+					Set tCode = $ZSTRIP($PIECE(^TMP("Custom.Nexus.CS.ConfigRegestry", $USERNAME, record),delimiter, 3),"*C")
+					Set tDesc = $ZSTRIP($PIECE(^TMP("Custom.Nexus.CS.ConfigRegestry", $USERNAME, record),delimiter, 4),"*C")
+					Set tValue = $ZSTRIP($PIECE(^TMP("Custom.Nexus.CS.ConfigRegestry", $USERNAME, record),delimiter, 5),"*C")
+						
+					Set oConfigRegestry = ""
+					&sql(
+						declare ConfReg cursor for
+						select %Id into :tIdAux from Custom_Nexus_CS.ConfigRegistry where Code = :tCode
+    				)
+  					&sql(OPEN ConfReg)
+    				If SQLCODE =0
+    				{
+  						&sql(fetch ConfReg)
+  						While (SQLCODE = 0) {
+							Set oConfigRegestry =  ##class(Custom.Nexus.CS.ConfigRegistry).%OpenId(tIdAux)
+							If debug = 1
+							{
+								If $ISOBJECT(oConfigRegestry)
+								{
+									Write "Found >> Id: "_oConfigRegestry.%id_" "
+									Write "Active: "_oConfigRegestry.Active_" "
+									Write "Code: "_oConfigRegestry.Code_" "
+									Write "Desc: "_oConfigRegestry.Description_" ",!
+								}
+							}
+							Set oConfigRegestry.Active = tActive
+							Set oConfigRegestry.Value = tValue
+							if upload Set tSC = oConfigRegestry.%Save()
+							if tSC '= ""
+							{
+								Write "*********************************************************************",!
+								Write "tSC: "_tSC,!
+								Write "*********************************************************************",!
+							}
+							if debug Write "___________________________________________________________________________",!
+    						&sql(fetch ConfReg) 
+    					}
+  						&sql(close ConfReg)
+      				}
+      				Else
+      				{
+	      				Set oConfigRegestry =  ##class(Custom.Nexus.CS.ConfigRegistry).%New()
+	      				If debug
+						{
+							Write "New >> Id: "_oConfigRegestry.%id_" "
+							Write "Active: "_oConfigRegestry.Active_" "
+							Write "Code: "_oConfigRegestry.Code_" "
+							Write "Desc: "_oConfigRegestry.Description_" ",!
+						}
+						Set oConfigRegestry.Active = tActive
+						Set oConfigRegestry.Code = tCode
+						Set oConfigRegestry.Description = tDesc
+						Set oConfigRegestry.Value = tValue
+						if upload Set tSC = oConfigRegestry.%Save()
+						if tSC '= ""
+						{
+							Write "*********************************************************************",!
+							Write "tSC: "_tSC,!
+							Write "*********************************************************************",!
+						}
+						if debug Write "___________________________________________________________________________",!
+					}
+				}
+				Set tSC = "Proceso finalizado"
+			}		
+		}
+		Else {
+			Set tSC = "Archivo no encontrado"
+		}
+	}
+	Catch(ex)
+	{
+		Set tSC = "Error("_ex.Code_"): "_ex.Data
+	}
+	Quit tSC
+]]></Implementation>
+</Method>
+
+<Parameter name="SrcVer">
+<Description>
+Location and Revision of this file in Perforce (Auto-updating)</Description>
+<Default>$Id$</Default>
+</Parameter>
+</Class>
+</Export>
